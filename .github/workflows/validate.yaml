@@ -1,0 +1,57 @@
+name: Validate Manifests
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -sSLo kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.2/kustomize_v5.4.2_linux_amd64.tar.gz
+          tar -xzf kustomize.tar.gz
+          sudo mv kustomize /usr/local/bin/
+          kustomize version
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.6/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: Validate prod overlays
+        run: |
+          set -euo pipefail
+          for path in \
+            apps/ghost/overlays/prod \
+            apps/ingress-nginx/overlays/prod \
+            apps/cloudflared/overlays/prod \
+            apps/observers/overlays/prod \
+            security/vault \
+            security/vso \
+            clusters/prod ; do
+            echo "Validating $path";
+            kustomize build $path | kubeconform -summary -strict -schema-location default || exit 1;
+          done
+
+      - name: Validate dev overlays
+        run: |
+          set -euo pipefail
+          for path in \
+            apps/ghost/overlays/dev \
+            apps/ingress-nginx/overlays/dev \
+            apps/cloudflared/overlays/dev \
+            apps/observers/overlays/dev \
+            clusters/dev ; do
+            echo "Validating $path";
+            kustomize build $path | kubeconform -summary -strict -schema-location default || exit 1;
+          done
+

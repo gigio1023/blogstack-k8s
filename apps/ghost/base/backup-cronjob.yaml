@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup
+  labels:
+    app: mysql
+spec:
+  schedule: "0 3 * * *"  # daily at 03:00
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: alpine:3.20
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: MYSQL_PWD
+                  valueFrom:
+                    secretKeyRef:
+                      name: mysql-secret
+                      key: root_password
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_S3_FORCE_PATH_STYLE
+                  value: "true"
+                - name: AWS_ENDPOINT_URL_S3
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: AWS_ENDPOINT_URL_S3
+                - name: BUCKET_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: BUCKET_NAME
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  apk add --no-cache mysql-client python3 py3-pip coreutils
+                  pip3 install --no-cache-dir awscli
+                  TS=$(date +%Y%m%d-%H%M%S)
+                  mysqldump -h mysql.blog.svc.cluster.local -u root --single-transaction --quick --lock-tables=false --all-databases > /tmp/backup-${TS}.sql
+                  : "${BUCKET_NAME:?BUCKET_NAME must be set in backup-s3 secret}"
+                  aws s3 cp /tmp/backup-${TS}.sql s3://${BUCKET_NAME}/mysql/${TS}.sql
+

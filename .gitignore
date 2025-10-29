@@ -1,0 +1,114 @@
+# Vault 관련 파일 (민감 정보 포함)
+security/vault/init-scripts/init-output.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Argo CD 관련
+.argocd-password
+argocd-password.txt
+
+# Kubernetes 관련
+.kube/
+kubeconfig
+*.kubeconfig
+*config.yaml.local
+
+# 로컬 환경 파일 (퍼블릭 설정 파일 제외)
+*.local.env
+.env.local
+config/*.local.env
+config/*.secret.env
+
+# IDE/에디터
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# OS 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# 임시 파일 및 백업
+*.bak
+*.backup
+*.tmp
+*.temp
+*.log
+*.old
+*~
+
+# 빌드 출력물
+kustomize-build/
+rendered/
+*.rendered.yaml
+kustomization.output.yaml
+
+# Helm 관련
+.helm/
+charts/*.tgz
+*.lock
+
+# 임시 스크립트 실행 결과
+*.pid
+*.sock
+
+# 테스트/디버그 파일
+test-output/
+debug/
+*.test.yaml
+
+# 압축 파일 (임시 다운로드 등)
+*.tar.gz
+*.zip
+*.tar
+
+# 로컬 개발용 설정
+.local/
+local/
+
+# 문서 생성 도구
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Python 관련 (필요시)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Node.js 관련 (필요시)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Terraform 관련 (필요시)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# 기타
+*.orig
+.cache/
+

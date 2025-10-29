@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vault
+
+resources:
+  - namespace.yaml
+  - servicemonitor.yaml
+  - networkpolicy.yaml
+
+helmCharts:
+  - name: vault
+    repo: https://helm.releases.hashicorp.com
+    version: 0.28.0
+    releaseName: vault
+    namespace: vault
+    valuesInline:
+      global:
+        enabled: true
+      server:
+        ha:
+          enabled: false
+        dataStorage:
+          enabled: true
+          size: 10Gi
+        auditStorage:
+          enabled: true
+          size: 5Gi
+        ingress:
+          enabled: false
+

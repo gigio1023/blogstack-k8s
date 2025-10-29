@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-reader
+  namespace: blog
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultConnection
+metadata:
+  name: vault-conn
+  namespace: blog
+spec:
+  address: http://vault.vault.svc:8200
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: vault-auth
+  namespace: blog
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: blog
+    serviceAccount: vault-reader
+    audiences:
+      - https://kubernetes.default.svc
+  vaultConnectionRef: vault-conn
+
