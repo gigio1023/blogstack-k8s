@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ghost-content-backup
+  namespace: blog
+spec:
+  schedule: "30 3 * * *"  # daily at 03:30
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+            - name: ghost-content
+              persistentVolumeClaim:
+                claimName: ghost-content
+          containers:
+            - name: content-backup
+              image: alpine:3.20
+              imagePullPolicy: IfNotPresent
+              volumeMounts:
+                - name: ghost-content
+                  mountPath: /var/lib/ghost/content
+                  readOnly: true
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_S3_FORCE_PATH_STYLE
+                  value: "true"
+                - name: AWS_ENDPOINT_URL_S3
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: AWS_ENDPOINT_URL_S3
+                - name: BUCKET_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-s3
+                      key: BUCKET_NAME
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  apk add --no-cache tar gzip python3 py3-pip coreutils
+                  pip3 install --no-cache-dir awscli
+                  TS=$(date +%Y%m%d-%H%M%S)
+                  ARCHIVE=/tmp/ghost-content-${TS}.tar.gz
+                  tar -C /var/lib/ghost -czf ${ARCHIVE} content
+                  : "${BUCKET_NAME:?BUCKET_NAME must be set in backup-s3 secret}"
+                  aws s3 cp ${ARCHIVE} s3://${BUCKET_NAME}/content/${TS}.tar.gz
+

@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: blog-external
+  namespace: observers
+  labels:
+    release: kube-prometheus-stack
+spec:
+  prober:
+    url: http://blackbox-exporter.observers.svc:9115
+  module: http_2xx
+  interval: 30s
+  targets:
+    staticConfig:
+      static:
+        # These will be replaced by Kustomize replacements in overlay
+        - https://example.invalid/
+        - https://example.invalid/sitemap.xml
+        - https://example.invalid/ghost/
+
