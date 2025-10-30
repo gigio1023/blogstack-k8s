@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: observers
+
+resources:
+  - probe.yaml
+
+helmCharts:
+  - name: kube-prometheus-stack
+    repo: https://prometheus-community.github.io/helm-charts
+    version: 79.0.0
+    releaseName: kube-prometheus-stack
+    namespace: observers
+    valuesInline:
+      grafana:
+        enabled: true
+        adminPassword: "admin"
+      prometheus:
+        prometheusSpec:
+          serviceMonitorSelectorNilUsesHelmValues: false
+          probeSelectorNilUsesHelmValues: false
+  - name: prometheus-blackbox-exporter
+    repo: https://prometheus-community.github.io/helm-charts
+    version: 8.1.0
+    releaseName: blackbox-exporter
+    namespace: observers
+    valuesInline:
+      serviceMonitor:
+        enabled: false  # We'll use Probe CRD for multi-target
+  - name: loki
+    repo: https://grafana.github.io/helm-charts
+    version: 5.39.0
+    releaseName: loki
+    namespace: observers
+    valuesInline:
+      loki:
+        auth_enabled: false
+  - name: promtail
+    repo: https://grafana.github.io/helm-charts
+    version: 6.15.3
+    releaseName: promtail
+    namespace: observers
+    valuesInline:
+      config:
+        clients:
+          - url: http://loki.observers.svc.cluster.local:3100/loki/api/v1/push
+

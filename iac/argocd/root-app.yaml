@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: blogstack-root
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: blogstack
+spec:
+  project: blog
+  source:
+    repoURL: https://github.com/your-org/blogstack-k8s
+    targetRevision: HEAD
+    path: clusters/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+
