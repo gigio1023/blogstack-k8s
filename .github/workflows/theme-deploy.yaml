@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: blogstack-k8s-arc-runner-set
     steps:
       - name: Checkout
         uses: actions/checkout@v4
