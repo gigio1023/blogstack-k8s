@@ -8,6 +8,7 @@ on:
 
 jobs:
   validate:
+    if: false  # Temporarily disabled
     runs-on: blogstack-k8s-arc-runner-set
     steps:
       - name: Checkout

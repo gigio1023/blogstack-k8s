@@ -286,10 +286,6 @@ aws s3 ls s3://blog-backups/mysql/ --endpoint-url <endpoint>
 | Logging | Loki + Promtail | 5.39+ |
 | Probing | Blackbox Exporter | 8.1+ |
 
-## 기여
-
-이슈와 PR 환영합니다!
-
 ### 개발 환경
 
 ```bash
@@ -302,20 +298,4 @@ helm template vault hashicorp/vault -f security/vault/kustomization.yaml
 # 문서 린트
 markdownlint docs/
 ```
-
-## 라이선스
-
-MIT License
-
-## 참고 자료
-
-- [Ghost 공식 문서](https://ghost.org/docs/)
-- [Argo CD 공식 문서](https://argo-cd.readthedocs.io/)
-- [Vault 공식 문서](https://developer.hashicorp.com/vault/docs)
-- [k3s 공식 문서](https://docs.k3s.io/)
-- [Cloudflare Zero Trust](https://developers.cloudflare.com/cloudflare-one/)
-
----
-
-**Made with ❤️ for self-hosting enthusiasts**
 
