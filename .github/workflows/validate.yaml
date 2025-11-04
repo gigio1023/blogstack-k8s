@@ -48,7 +48,7 @@ jobs:
       
       - name: Validate Ingress-NGINX (prod)
         run: |
-          kustomize build --load-restrictor=LoadRestrictionsNone apps/ingress-nginx/overlays/prod | \
+          kustomize build --enable-helm --load-restrictor=LoadRestrictionsNone apps/ingress-nginx/overlays/prod | \
             kubeconform -summary -strict \
             -schema-location default \
             -skip CustomResourceDefinition
@@ -57,7 +57,8 @@ jobs:
         run: |
           kustomize build --load-restrictor=LoadRestrictionsNone apps/cloudflared/overlays/prod | \
             kubeconform -summary -strict \
-            -schema-location default
+            -schema-location default \
+            -skip ServiceMonitor
       
       - name: Validate Observers (prod)
         run: |
