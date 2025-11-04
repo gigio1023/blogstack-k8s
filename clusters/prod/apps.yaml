@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/observers/overlays/prod
-    targetRevision: HEAD
+    targetRevision: feat/impl-doc-alignment
   destination:
     server: https://kubernetes.default.svc
     namespace: observers
@@ -31,7 +31,7 @@ spec:
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/ingress-nginx/overlays/prod
-    targetRevision: HEAD
+    targetRevision: feat/impl-doc-alignment
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
@@ -53,7 +53,7 @@ spec:
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/cloudflared/overlays/prod
-    targetRevision: HEAD
+    targetRevision: feat/impl-doc-alignment
   destination:
     server: https://kubernetes.default.svc
     namespace: cloudflared
@@ -75,7 +75,7 @@ spec:
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
     path: security/vault
-    targetRevision: HEAD
+    targetRevision: feat/impl-doc-alignment
   destination:
     server: https://kubernetes.default.svc
     namespace: vault
@@ -96,7 +96,7 @@ spec:
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
     path: security/vso
-    targetRevision: HEAD
+    targetRevision: feat/impl-doc-alignment
   destination:
     server: https://kubernetes.default.svc
     namespace: vso
@@ -118,7 +118,7 @@ spec:
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/ghost/overlays/prod
-    targetRevision: HEAD
+    targetRevision: feat/impl-doc-alignment
   destination:
     server: https://kubernetes.default.svc
     namespace: blog
