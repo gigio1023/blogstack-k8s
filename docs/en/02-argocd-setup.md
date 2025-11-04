@@ -17,6 +17,7 @@ Argo CD installation for GitOps and App-of-Apps pattern deployment
 - k3s installation complete ([01-infrastructure.md](./01-infrastructure.md))
 - SSH connection to VM established
 - Project directory: `~/blogstack-k8s`
+- **All commands should be run from project root directory (`~/blogstack-k8s`)**
 
 ### Git URL Verification (Required)
 
@@ -118,7 +119,7 @@ kubectl rollout status deployment argocd-repo-server -n argocd
 Create Project before Root App:
 
 ```bash
-kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl apply -f ./clusters/prod/project.yaml
 ```
 
 Verify:
@@ -257,9 +258,9 @@ kubectl describe application blogstack-root -n argocd
 
 **Solution:**
 ```bash
-kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl apply -f ./clusters/prod/project.yaml
 kubectl delete application blogstack-root -n argocd
-kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 ### 2. "do not match any of the allowed destinations"
@@ -280,9 +281,9 @@ kubectl get appproject blog -n argocd -o yaml | grep -A 15 "destinations:"
 
 # If argocd namespace missing, add it
 # After file modification:
-kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl apply -f ./clusters/prod/project.yaml
 kubectl delete application blogstack-root -n argocd
-kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 ### 3. "must specify --enable-helm"
@@ -378,7 +379,7 @@ git push origin main
 git pull origin main
 
 # 7. Redeploy Root App
-kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 ### 8. Helm Chart Download Failure
