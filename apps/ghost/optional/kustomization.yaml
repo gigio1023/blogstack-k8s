@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: blog
+
+resources:
+  - backup-cronjob.yaml
+  - content-backup-cronjob.yaml
+
+# 사용법:
+# 1. security/vso/secrets/optional/backup.yaml도 활성화
+# 2. kustomize build apps/ghost/optional | kubectl apply -f -
+

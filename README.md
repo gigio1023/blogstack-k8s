@@ -1,8 +1,35 @@
 # blogstack-k8s
 
-Self-hosted Ghost 블로그를 위한 **프로덕션 ready GitOps 모노레포**
+Self-hosted Ghost 블로그를 위한 GitOps 모노레포  
+k3s + Argo CD + Vault + Cloudflare Tunnel + MySQL + Ghost
 
-Oracle Cloud ARM64 VM + k3s + Argo CD + Vault + Cloudflare Tunnel
+---
+
+> ⚠️ **배포 전 필수 수정사항**
+>
+> 이 리포지토리를 그대로 배포하면 작동하지 않습니다. 다음을 먼저 수정하세요:
+>
+> 1. **Git Repository URL 변경** (3개 파일)
+>    - `iac/argocd/root-app.yaml`
+>    - `clusters/prod/apps.yaml` (6곳)
+>    - `clusters/prod/project.yaml`
+>    ```yaml
+>    repoURL: https://github.com/your-org/blogstack-k8s  # 실제 URL로 변경
+>    ```
+>
+> 2. **도메인 설정** (`config/prod.env`)
+>    ```env
+>    domain=yourdomain.com  # 실제 도메인으로 변경
+>    ```
+>
+> 3. **외부 서비스 준비**
+>    - Cloudflare Tunnel 생성 및 토큰 발급
+>    - (선택) OCI Object Storage - 백업 활성화 시
+>    - (선택) SMTP 서비스 - 이메일 발송 시
+>
+> 자세한 내용: [`docs/CUSTOMIZATION.md`](./docs/CUSTOMIZATION.md)
+
+---
 
 ## 주요 특징
 
@@ -10,8 +37,7 @@ Oracle Cloud ARM64 VM + k3s + Argo CD + Vault + Cloudflare Tunnel
 - **Self-hosted Secret 관리**: HashiCorp Vault + VSO로 시크릿 중앙화
 - **Cloudflare Tunnel**: 공인 포트 개방 없이 HTTPS 노출 + Zero Trust Access
 - **관측 우선**: Prometheus + Grafana + Loki + Blackbox로 전방위 모니터링
-- **자동 백업**: MySQL → OCI Object Storage (S3 API)
-- **ARM64 최적화**: Oracle Cloud A1.Flex 인스턴스 지원
+- **선택 기능**: 자동 백업 (MySQL → OCI S3), SMTP 이메일 발송
 
 ## 아키텍처
 
@@ -41,9 +67,11 @@ Oracle Cloud ARM64 VM + k3s + Argo CD + Vault + Cloudflare Tunnel
 │  │  └─────────────────────────────────────────────┘    │  │
 │  │                                                       │  │
 │  │  ┌─────────────┐  ┌───────────┐  ┌────────────┐    │  │
-│  │  │  cloudflared│  │ingress-nginx│  │   Ghost   │    │  │
-│  │  │  (Tunnel)   │─>│(Controller) │─>│  + MySQL  │    │  │
-│  │  └─────────────┘  └───────────┘  └────────────┘    │  │
+│  │  │ cloudflared │  │ingress-   │  │   Ghost   │    │  │
+│  │  │  (Tunnel)   │─>│  nginx    │─>│  + MySQL  │    │  │
+│  │  │  HA x2      │  │(X-Fwd-    │  │  StatefulSet│  │  │
+│  │  └─────────────┘  │  Proto)   │  └────────────┘    │  │
+│  │                   └───────────┘         │            │  │
 │  │                                         │            │  │
 │  │                                         ▼            │  │
 │  │                                    ┌────────────┐   │  │
@@ -51,27 +79,49 @@ Oracle Cloud ARM64 VM + k3s + Argo CD + Vault + Cloudflare Tunnel
 │  │                                    │(Local Path)│   │  │
 │  │                                    └────────────┘   │  │
 │  └──────────────────────────────────────────────────────┘  │
-│                                                              │
-│  ┌───────────────────────────────────────────────────┐     │
-│  │      Backup CronJob (매일 03:00)                  │     │
-│  │   mysqldump → OCI Object Storage (S3 API)         │     │
-│  └───────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
+
+선택 기능 (기본 비활성화):
+- 백업 CronJob: MySQL/Content → OCI Object Storage
+- SMTP: Ghost 이메일 발송
 ```
+
+## 📚 문서 가이드
+
+### 순서대로 따라하기
+
+처음 배포하시는 분은 다음 순서로 문서를 보세요:
+
+1. **[00-prerequisites.md](./docs/00-prerequisites.md)** - 사전 준비사항 체크리스트
+2. **[CUSTOMIZATION.md](./docs/CUSTOMIZATION.md)** - 5분 빠른 설정 (Git URL, 도메인)
+3. **[01-infrastructure.md](./docs/01-infrastructure.md)** - k3s 설치
+4. **[02-argocd-setup.md](./docs/02-argocd-setup.md)** - Argo CD 설치 (수동)
+5. **[03-vault-setup.md](./docs/03-vault-setup.md)** - Vault 초기화 및 시크릿 입력
+6. **[04-operations.md](./docs/04-operations.md)** - 운영 가이드
+
+### 추가 문서
+
+- **[CONFORMANCE.md](./docs/CONFORMANCE.md)** - **Setup & Conformance (단일 사실 원천)** - 계획, 검증, 참조, 트러블슈팅 통합
+- [SECURITY.md](./docs/SECURITY.md) - 보안 설정 상세
+- [ENVIRONMENTS.md](./docs/ENVIRONMENTS.md) - 다중 환경 구성
+- [CI.md](./docs/CI.md) - GitHub Actions CI
+
+---
 
 ## 빠른 시작
 
 > **중요**: 이 문서의 예시에서 `sunghogigio.com`은 참조용입니다. 실제 구축 시 `config/prod.env` 파일에서 본인의 도메인으로 변경하세요.
 
-커스터마이징 방법은 `docs/CUSTOMIZATION.md`를 참고하세요.
-
 ### 1. 사전 요구사항
 
+필수:
 - Oracle Cloud VM.Standard.A1.Flex (ARM64, 4 OCPU, 24GB)
-- 도메인 (Cloudflare 등록)
+- 도메인 (Cloudflare Registrar 권장)
 - Cloudflare Zero Trust 계정
-- OCI Object Storage 버킷 (백업용)
-- SMTP 서비스 (Mailgun, SendGrid 등)
+
+선택 (필요 시):
+- OCI Object Storage 버킷 (백업 활성화 시)
+- SMTP 서비스 (이메일 발송 시 - Mailgun, SendGrid 등)
 
 자세한 내용: [docs/00-prerequisites.md](./docs/00-prerequisites.md)
 
@@ -113,23 +163,31 @@ kubectl get nodes
 
 자세한 내용: [docs/01-infrastructure.md](./docs/01-infrastructure.md)
 
-### 4. 부트스트랩 실행
+### 4. Argo CD 설치
 
 ```bash
 # 리포지토리 클론 (VM 내부)
 git clone https://github.com/<your-org>/blogstack-k8s
 cd blogstack-k8s
 
-# 부트스트랩 스크립트 실행
-./scripts/bootstrap.sh
+# Argo CD 네임스페이스 생성
+kubectl create namespace argocd
+
+# Argo CD 설치
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Pod 준비 대기 (약 2-3분)
+kubectl wait --for=condition=available --timeout=300s deployment -n argocd --all
+
+# Root App 배포
+kubectl apply -f iac/argocd/root-app.yaml
 ```
 
-스크립트가 자동으로:
-- Argo CD 설치
-- Root App 배포
-- 자식 App들 동기화 시작
+Root App이 모든 하위 애플리케이션을 자동으로 배포합니다.
 
 자세한 내용: [docs/02-argocd-setup.md](./docs/02-argocd-setup.md)
+
+> 빠른 설치 스크립트(`./scripts/bootstrap.sh`)도 제공되지만, 처음 설치하시는 분은 위의 수동 설치를 권장합니다.
 
 ### 5. Vault 초기화 및 시크릿 주입
 
@@ -151,17 +209,14 @@ cd security/vault/init-scripts
 # 시크릿 입력 (security/vault/secrets-guide.md 참조)
 export VAULT_TOKEN=<root-token>
 
-# Ghost 시크릿
+# Ghost 시크릿 (기본 구성 - SMTP 없이)
 vault kv put kv/blog/prod/ghost \
   url="https://sunghogigio.com" \
   database__client="mysql" \
   database__connection__host="mysql.blog.svc.cluster.local" \
   database__connection__user="ghost" \
   database__connection__password="<password>" \
-  database__connection__database="ghost" \
-  mail__transport="SMTP" \
-  mail__options__auth__user="<smtp-user>" \
-  mail__options__auth__pass="<smtp-pass>"
+  database__connection__database="ghost"
 
 # MySQL 시크릿
 vault kv put kv/blog/prod/mysql \
@@ -171,13 +226,9 @@ vault kv put kv/blog/prod/mysql \
 # Cloudflare Tunnel 토큰
 vault kv put kv/blog/prod/cloudflared \
   token="<tunnel-token>"
-
-# 백업 S3 credentials
-vault kv put kv/blog/prod/backup \
-  AWS_ACCESS_KEY_ID="<oci-key>" \
-  AWS_SECRET_ACCESS_KEY="<oci-secret>" \
-  AWS_ENDPOINT_URL_S3="https://<ns>.compat.objectstorage.<region>.oraclecloud.com"
 ```
+
+선택 기능 활성화 방법은 docs/03-vault-setup.md (선택 기능) 참조
 
 자세한 내용: [docs/03-vault-setup.md](./docs/03-vault-setup.md)
 
@@ -217,9 +268,9 @@ blogstack-k8s/
 ├── security/                # 시크릿 관리
 │   ├── vault/               # Vault (Helm + 정책)
 │   └── vso/                 # Vault Secrets Operator
-├── scripts/                 # 자동화 스크립트
-│   ├── bootstrap.sh
-│   └── health-check.sh
+├── scripts/                 # 유틸리티 스크립트
+│   ├── bootstrap.sh         # (선택) 빠른 설치
+│   └── health-check.sh      # 헬스 체크
 └── docs/                    # 문서
     ├── 00-prerequisites.md
     ├── 01-infrastructure.md
@@ -240,19 +291,6 @@ kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80
 # Prometheus
 kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090
 # http://localhost:9090
-```
-
-### 백업 확인
-
-```bash
-# 백업 CronJob 상태
-kubectl get cronjob -n blog mysql-backup
-
-# 최근 Job 실행
-kubectl get jobs -n blog
-
-# OCI Object Storage 확인
-aws s3 ls s3://blog-backups/mysql/ --endpoint-url <endpoint>
 ```
 
 ### 트러블슈팅

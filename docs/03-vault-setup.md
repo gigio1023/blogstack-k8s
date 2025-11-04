@@ -93,12 +93,15 @@ vault auth list
 
 ### 2. Kubernetes Auth 설정
 
+Vault가 Kubernetes API와 통신하도록 설정:
+
 ```bash
 # K8s API 서버 정보
 K8S_HOST=$(kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[0].cluster.server}')
 
-# ServiceAccount JWT
-TOKEN_REVIEWER_JWT=$(kubectl get secret -n vault $(kubectl get sa -n vault vault -o jsonpath='{.secrets[0].name}') -o jsonpath='{.data.token}' | base64 -d)
+# ServiceAccount JWT 생성 (Kubernetes 1.24+ 호환)
+# Vault Helm chart가 자동으로 'vault' SA를 생성했으므로 해당 SA로 토큰 생성
+TOKEN_REVIEWER_JWT=$(kubectl create token vault -n vault --duration=87600h)
 
 # CA Certificate
 K8S_CA_CERT=$(kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 -d)
@@ -107,8 +110,11 @@ K8S_CA_CERT=$(kubectl config view --raw --minify --flatten -o jsonpath='{.cluste
 vault write auth/kubernetes/config \
     token_reviewer_jwt="$TOKEN_REVIEWER_JWT" \
     kubernetes_host="$K8S_HOST" \
-    kubernetes_ca_cert="$K8S_CA_CERT"
+    kubernetes_ca_cert="$K8S_CA_CERT" \
+    disable_local_ca_jwt=true
 ```
+
+> **참고**: `disable_local_ca_jwt=true`를 설정하면 Vault가 Pod 내부의 SA 토큰이 아닌 위에서 생성한 토큰을 사용합니다.
 
 ### 3. Role 생성 (네임스페이스/SA별 최소권한)
 
@@ -130,60 +136,157 @@ vault write auth/kubernetes/role/cloudflared \
 
 ## 시크릿 입력
 
-`security/vault/secrets-guide.md`를 참조하여 필요한 시크릿을 입력합니다.
+00-prerequisites.md에서 준비한 모든 자격증명을 Vault에 입력합니다.
 
-### 1. Ghost
+팁: 각 명령 실행 후 즉시 검증하여 오류를 미리 방지하세요
 
+---
+
+### 1. Ghost 시크릿 입력
+
+기본 구성 (SMTP 없이):
 ```bash
+# Vault에 Ghost 시크릿 입력
 vault kv put kv/blog/prod/ghost \
-  url="https://sunghogigio.com" \
+  url="https://yourdomain.com" \
   database__client="mysql" \
   database__connection__host="mysql.blog.svc.cluster.local" \
   database__connection__user="ghost" \
-  database__connection__password="<YOUR_SECURE_PASSWORD>" \
-  database__connection__database="ghost" \
-  mail__transport="SMTP" \
-  mail__options__service="Mailgun" \
-  mail__options__host="smtp.mailgun.org" \
-  mail__options__port="587" \
-  mail__options__auth__user="<YOUR_SMTP_USER>" \
-  mail__options__auth__pass="<YOUR_SMTP_PASSWORD>"
+  database__connection__password="YOUR_DB_PASSWORD" \
+  database__connection__database="ghost"
 ```
 
-### 2. MySQL
+필드 설명:
+| 필드 | 출처 | 주의사항 |
+|------|------|----------|
+| `url` | `config/prod.env`의 `siteUrl` | 정확히 일치해야 함 |
+| `database__connection__password` | 직접 생성 | 8자 이상 권장 |
+
+중요: `url`은 반드시 `config/prod.env`의 `siteUrl`과 정확히 일치해야 함
+
+참고: SMTP를 설정하지 않으면 이메일 발송 기능이 작동하지 않지만, 블로그 게시 및 관리는 정상 작동합니다.
+
+입력 확인:
+```bash
+# Ghost 시크릿 확인
+vault kv get kv/blog/prod/ghost
+
+# 예상 출력:
+# ====== Data ======
+# Key                             Value
+# ---                             -----
+# url                             https://yourdomain.com
+# database__client                mysql
+# database__connection__host      mysql.blog.svc.cluster.local
+# ...
+```
+
+---
+
+### 2. MySQL 시크릿 입력
 
 ```bash
+# Vault에 MySQL 시크릿 입력
 vault kv put kv/blog/prod/mysql \
-  root_password="<YOUR_MYSQL_ROOT_PASSWORD>" \
+  root_password="YOUR_ROOT_PASSWORD" \
   user="ghost" \
-  password="<YOUR_MYSQL_GHOST_PASSWORD>" \
+  password="YOUR_DB_PASSWORD" \
   database="ghost"
 ```
 
-**중요: `database__connection__password`와 `password`는 동일한 값이어야 합니다!**
+필드 설명:
+| 필드 | 주의사항 |
+|------|----------|
+| `root_password` | 직접 생성 (8자 이상 권장) |
+| `password` | Ghost의 `database__connection__password`와 동일해야 함 |
 
-### 3. Cloudflare Tunnel
+필수: `password`는 위 Ghost 시크릿의 `database__connection__password`와 정확히 동일해야 함
 
-먼저 Cloudflare에서 Tunnel 생성:
-
-1. https://one.dash.cloudflare.com/ 접속
-2. Networks → Tunnels → Create a tunnel
-3. Connector: Cloudflared
-4. Tunnel 이름: `blogstack`
-5. Token 복사
-
+입력 확인:
 ```bash
-vault kv put kv/blog/prod/cloudflared \
-  token="<CLOUDFLARE_TUNNEL_TOKEN>"
+# MySQL 시크릿 확인
+vault kv get kv/blog/prod/mysql
+
+# 예상 출력:
+# ====== Data ======
+# Key              Value
+# ---              -----
+# root_password    (입력한 값)
+# user             ghost
+# password         (입력한 값)
+# database         ghost
 ```
 
-### 4. Backup (OCI S3)
+비밀번호 일치 확인:
+```bash
+# Ghost DB 비밀번호
+vault kv get -field=database__connection__password kv/blog/prod/ghost
+
+# MySQL 비밀번호
+vault kv get -field=password kv/blog/prod/mysql
+
+# 두 출력이 동일해야 함!
+```
+
+---
+
+### 3. Cloudflare Tunnel 시크릿 입력
 
 ```bash
-vault kv put kv/blog/prod/backup \
-  AWS_ACCESS_KEY_ID="<OCI_ACCESS_KEY>" \
-  AWS_SECRET_ACCESS_KEY="<OCI_SECRET_KEY>" \
-  AWS_ENDPOINT_URL_S3="https://<namespace>.compat.objectstorage.<region>.oraclecloud.com"
+# Vault에 Cloudflare Tunnel 토큰 입력
+vault kv put kv/blog/prod/cloudflared \
+  token="YOUR_CLOUDFLARE_TUNNEL_TOKEN"
+```
+
+토큰 출처: 00-prerequisites.md의 3.3 단계에서 복사한 Cloudflare Tunnel Token
+
+토큰 형식: 긴 Base64 인코딩 문자열 (약 200자)
+
+입력 확인:
+```bash
+# Cloudflare Tunnel 토큰 확인
+vault kv get kv/blog/prod/cloudflared
+
+# 예상 출력:
+# ===== Data =====
+# Key      Value
+# ---      -----
+# token    eyJhIjoiYWJjZGVm...
+```
+
+---
+
+### 모든 시크릿 입력 완료 확인 (기본 구성)
+
+```bash
+# 모든 시크릿 경로 확인
+vault kv list kv/blog/prod
+
+# 예상 출력:
+# Keys
+# ----
+# cloudflared
+# ghost
+# mysql
+```
+
+각 시크릿 필드 개수 확인:
+```bash
+echo "=== Vault Secrets Check ==="
+
+echo -n "Ghost fields: "
+vault kv get -format=json kv/blog/prod/ghost | jq '.data.data | length'
+# 예상: 6 (SMTP 없이)
+
+echo -n "MySQL fields: "
+vault kv get -format=json kv/blog/prod/mysql | jq '.data.data | length'
+# 예상: 4
+
+echo -n "Cloudflared fields: "
+vault kv get -format=json kv/blog/prod/cloudflared | jq '.data.data | length'
+# 예상: 1
+
+echo "=== Check Complete ==="
 ```
 
 ## VSO Secret 동기화 확인
@@ -213,16 +316,41 @@ kubectl logs -n vso -l app.kubernetes.io/name=vault-secrets-operator
 
 Token을 입력했으면 Cloudflare에서 Public Hostname 설정:
 
-1. Tunnel → `blogstack` → Configure
-2. Public Hostnames → Add a public hostname:
-   - Subdomain: (비워두거나 www)
-   - Domain: `sunghogigio.com`
-   - Service Type: `HTTP`
-   - URL: `http://ghost.blog.svc.cluster.local`
+### 중요: 트래픽 흐름 이해
 
-3. `/ghost` 경로 추가:
-   - Path: `/ghost/*`
-   - Service: `http://ghost.blog.svc.cluster.local`
+```
+외부 사용자
+  ↓ HTTPS
+Cloudflare CDN
+  ↓ Cloudflare Tunnel (암호화)
+cloudflared Pod (클러스터 내부)
+  ↓ HTTP (내부 통신)
+Ingress-NGINX Controller
+  ↓ HTTP + X-Forwarded-Proto: https
+Ghost Service
+```
+
+Cloudflare Tunnel은 **Ingress Controller로 연결**해야 합니다.
+
+### Public Hostname 설정
+
+1. Cloudflare Zero Trust 대시보드: https://one.dash.cloudflare.com/
+2. Networks → Tunnels → `blogstack` → Configure
+3. **Public Hostnames** → Add a public hostname:
+
+| 항목 | 값 | 설명 |
+|------|-----|------|
+| Subdomain | (비워둠) | Apex 도메인 사용 |
+| Domain | `yourdomain.com` | 실제 도메인 입력 |
+| Path | (비워둠) | 모든 경로 |
+| Service Type | **HTTP** | 클러스터 내부는 HTTP |
+| URL | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller (Service:Port) |
+
+> **왜 Ghost Service가 아닌 Ingress로?**
+> - Ingress가 `X-Forwarded-Proto: https` 헤더를 추가해야 Ghost가 올바른 리다이렉트를 생성합니다.
+> - Ghost 설정(`url=https://...`)과 실제 프로토콜을 맞춰주는 역할입니다.
+> 
+> **참고**: Service 이름은 `kubectl get svc -n ingress-nginx`로 확인 가능합니다.
 
 ### Zero Trust Access 정책
 
@@ -298,4 +426,73 @@ kubectl delete pod -n vso -l app.kubernetes.io/name=vault-secrets-operator
 Vault와 VSO 구성이 완료되었습니다. 이제 Ghost가 자동으로 시크릿을 받아 시작됩니다.
 
 다음: [04-operations.md](./04-operations.md)
+
+---
+
+## 선택 기능
+
+### A. SMTP 이메일 발송 활성화
+
+Ghost에서 이메일을 발송하려면 (비밀번호 재설정, 회원 초대 등):
+
+1. 00-prerequisites.md의 "선택 기능 B" 섹션에 따라 SMTP 서비스 준비
+2. Ghost 시크릿에 SMTP 필드 추가:
+
+```bash
+vault kv put kv/blog/prod/ghost \
+  url="https://yourdomain.com" \
+  database__client="mysql" \
+  database__connection__host="mysql.blog.svc.cluster.local" \
+  database__connection__user="ghost" \
+  database__connection__password="YOUR_DB_PASSWORD" \
+  database__connection__database="ghost" \
+  mail__transport="SMTP" \
+  mail__options__service="Mailgun" \
+  mail__options__host="smtp.mailgun.org" \
+  mail__options__port="587" \
+  mail__options__auth__user="postmaster@mg.yourdomain.com" \
+  mail__options__auth__pass="YOUR_SMTP_PASSWORD"
+```
+
+3. Ghost Pod 재시작:
+```bash
+kubectl rollout restart deployment/ghost -n blog
+```
+
+### B. 백업 자동화 활성화
+
+MySQL과 Ghost 컨텐츠를 OCI Object Storage에 자동 백업하려면:
+
+1. 00-prerequisites.md의 "선택 기능 A" 섹션에 따라 OCI Object Storage 준비
+2. Vault에 백업 시크릿 입력:
+
+```bash
+vault kv put kv/blog/prod/backup \
+  AWS_ACCESS_KEY_ID="YOUR_OCI_ACCESS_KEY" \
+  AWS_SECRET_ACCESS_KEY="YOUR_OCI_SECRET_KEY" \
+  AWS_ENDPOINT_URL_S3="https://YOUR_NAMESPACE.compat.objectstorage.YOUR_REGION.oraclecloud.com" \
+  BUCKET_NAME="blog-backups"
+```
+
+3. VSO Secret 배포:
+```bash
+kubectl apply -f /home/ubuntu/git/blogstack-k8s/security/vso/secrets/optional/backup.yaml
+```
+
+4. Backup CronJob 배포:
+```bash
+kustomize build /home/ubuntu/git/blogstack-k8s/apps/ghost/optional | kubectl apply -f -
+```
+
+5. 백업 확인:
+```bash
+# CronJob 확인
+kubectl get cronjob -n blog
+
+# 수동 백업 테스트
+kubectl create job --from=cronjob/mysql-backup mysql-backup-test -n blog
+kubectl logs -f job/mysql-backup-test -n blog
+```
+
+자세한 운영 가이드는 apps/ghost/optional/README.md 참조
 
