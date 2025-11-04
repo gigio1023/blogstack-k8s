@@ -13,7 +13,7 @@
 
 ### 1. Ghost Application (`kv/blog/prod/ghost`)
 
-Ghost 애플리케이션 설정 및 DB 연결 정보:
+Ghost 애플리케이션 설정 및 DB 연결 정보 (기본 구성 - SMTP 없이):
 
 ```bash
 vault kv put kv/blog/prod/ghost \
@@ -22,14 +22,10 @@ vault kv put kv/blog/prod/ghost \
   database__connection__host="mysql.blog.svc.cluster.local" \
   database__connection__user="ghost" \
   database__connection__password="<SECURE_PASSWORD>" \
-  database__connection__database="ghost" \
-  mail__transport="SMTP" \
-  mail__options__service="Mailgun" \
-  mail__options__host="smtp.mailgun.org" \
-  mail__options__port="587" \
-  mail__options__auth__user="<SMTP_USER>" \
-  mail__options__auth__pass="<SMTP_PASSWORD>"
+  database__connection__database="ghost"
 ```
+
+참고: SMTP 이메일 발송이 필요하면 docs/03-vault-setup.md (선택 기능) 참조
 
 ### 2. MySQL (`kv/blog/prod/mysql`)
 
@@ -52,17 +48,25 @@ vault kv put kv/blog/prod/cloudflared \
   token="<CLOUDFLARE_TUNNEL_TOKEN>"
 ```
 
-### 4. Backup (OCI Object Storage S3) (`kv/blog/prod/backup`)
+---
 
-OCI Object Storage S3 호환 API 자격증명:
+## 선택 기능
+
+### 백업 (OCI Object Storage S3) (`kv/blog/prod/backup`)
+
+백업 자동화가 필요하면 설정:
 
 ```bash
 vault kv put kv/blog/prod/backup \
   AWS_ACCESS_KEY_ID="<OCI_ACCESS_KEY>" \
   AWS_SECRET_ACCESS_KEY="<OCI_SECRET_KEY>" \
   AWS_ENDPOINT_URL_S3="https://<namespace>.compat.objectstorage.<region>.oraclecloud.com" \
-  BUCKET_NAME="<your-backup-bucket>"
+  BUCKET_NAME="blog-backups"
 ```
+
+활성화 방법: docs/03-vault-setup.md (선택 기능 B) 및 apps/ghost/optional/README.md 참조
+
+---
 
 ## 초기화 순서
 
@@ -110,9 +114,11 @@ kubectl get secrets -n blog
 kubectl get secrets -n cloudflared
 ```
 
-예상 Secret:
+예상 Secret (기본 구성):
 - `ghost-env` (namespace: blog)
 - `mysql-secret` (namespace: blog)
 - `cloudflared-token` (namespace: cloudflared)
+
+선택 (백업 활성화 시):
 - `backup-s3` (namespace: blog)
 

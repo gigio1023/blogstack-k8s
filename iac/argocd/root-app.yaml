@@ -8,7 +8,7 @@ metadata:
 spec:
   project: blog
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     targetRevision: HEAD
     path: clusters/prod
   destination:
