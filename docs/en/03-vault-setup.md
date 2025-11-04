@@ -56,7 +56,7 @@ curl -s $VAULT_ADDR/v1/sys/health | jq
 ## Step 2: Initialize Vault
 
 ```bash
-cd ~/blogstack-k8s/security/vault/init-scripts
+cd security/vault/init-scripts
 
 # Execute initialization script
 ./01-init-unseal.sh
@@ -137,7 +137,7 @@ vault read auth/kubernetes/config
 ## Step 5: Create Policies
 
 ```bash
-cd ~/blogstack-k8s/security/vault/policies
+cd security/vault/policies
 
 # Create VSO policy
 vault policy write vso-policy vso-policy.hcl
@@ -383,10 +383,10 @@ vault kv put kv/blog/prod/backup \
   AWS_REGION="us-phoenix-1"
 
 # Apply optional backup CronJob
-kubectl apply -f ~/blogstack-k8s/apps/ghost/optional/
+kubectl apply -f ./apps/ghost/optional/
 
 # Apply VSO secret for backup
-kubectl apply -f ~/blogstack-k8s/security/vso/secrets/optional/
+kubectl apply -f ./security/vso/secrets/optional/
 ```
 
 See `apps/ghost/optional/README.md` for details.

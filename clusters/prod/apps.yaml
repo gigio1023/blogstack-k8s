@@ -15,6 +15,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: observers
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
@@ -36,6 +39,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
@@ -58,6 +64,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: cloudflared
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
@@ -80,6 +89,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: vault
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
@@ -101,6 +113,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: vso
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
@@ -123,6 +138,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: blog
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true

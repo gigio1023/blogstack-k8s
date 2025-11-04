@@ -17,6 +17,7 @@ GitOps를 위한 Argo CD 설치 및 App-of-Apps 패턴 배포
 - k3s 설치 완료 ([01-infrastructure.md](./01-infrastructure.md))
 - VM SSH 접속 상태
 - 프로젝트 디렉토리: `~/blogstack-k8s`
+- **모든 명령어는 프로젝트 루트 디렉터리(`~/blogstack-k8s`)에서 실행**
 
 ### Git URL 변경 확인 (필수)
 
@@ -118,7 +119,7 @@ kubectl rollout status deployment argocd-repo-server -n argocd
 Root App이 사용할 Project를 먼저 생성:
 
 ```bash
-kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl apply -f ./clusters/prod/project.yaml
 ```
 
 확인:
@@ -257,9 +258,9 @@ kubectl describe application blogstack-root -n argocd
 
 **해결:**
 ```bash
-kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl apply -f ./clusters/prod/project.yaml
 kubectl delete application blogstack-root -n argocd
-kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 ### 2. "do not match any of the allowed destinations"
@@ -280,9 +281,9 @@ kubectl get appproject blog -n argocd -o yaml | grep -A 15 "destinations:"
 
 # argocd 네임스페이스가 없으면 추가 필요
 # 파일 수정 후:
-kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl apply -f ./clusters/prod/project.yaml
 kubectl delete application blogstack-root -n argocd
-kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 ### 3. "must specify --enable-helm"
@@ -378,7 +379,7 @@ git push origin main
 git pull origin main
 
 # 7. Root App 재배포
-kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 ### 4. Helm Chart 다운로드 실패
