@@ -6,8 +6,10 @@ metadata:
 spec:
   description: Blogstack dev project boundaries
   sourceRepos:
-    - https://github.com/your-org/blogstack-k8s
+    - https://github.com/gigio1023/blogstack-k8s
   destinations:
+    - namespace: argocd
+      server: https://kubernetes.default.svc
     - namespace: blog-dev
       server: https://kubernetes.default.svc
     - namespace: observers-dev

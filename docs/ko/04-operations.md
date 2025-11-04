@@ -18,7 +18,7 @@ kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80
 
 # 브라우저: http://localhost:3000
 # Username: admin
-# Password: prom-operator (기본값, Helm values로 변경 가능)
+# Password: admin (기본값, apps/observers/base/kustomization.yaml에서 변경 가능)
 ```
 
 ### Argo CD
@@ -80,43 +80,6 @@ LogQL 예시:
 
 # Cloudflared 로그
 {namespace="cloudflared"}
-```
-
-## 백업 & 복구
-
-### MySQL 백업
-
-백업 CronJob이 매일 03:00에 자동 실행:
-
-```bash
-# CronJob 확인
-kubectl get cronjob -n blog mysql-backup
-
-# 최근 Job 실행 확인
-kubectl get jobs -n blog
-
-# 수동 백업 트리거
-kubectl create job -n blog manual-backup-$(date +%Y%m%d) --from=cronjob/mysql-backup
-```
-
-### 백업 파일 확인 (OCI Object Storage)
-
-```bash
-# AWS CLI로 확인 (credentials 설정 필요)
-aws s3 ls s3://blog-backups/mysql/ --endpoint-url https://<namespace>.compat.objectstorage.<region>.oraclecloud.com
-```
-
-### 복구
-
-```bash
-# 백업 다운로드
-aws s3 cp s3://blog-backups/mysql/20241029-030000.sql backup.sql --endpoint-url <endpoint>
-
-# MySQL Pod에 복사
-kubectl cp backup.sql blog/mysql-0:/tmp/backup.sql
-
-# 복구 실행
-kubectl exec -n blog mysql-0 -- mysql -u root -p<password> < /tmp/backup.sql
 ```
 
 ## 일반적인 문제 해결
@@ -271,7 +234,7 @@ Git push → Argo CD 자동 배포
 
 ### MySQL 버전 업그레이드
 
-**주의: 백업 필수**
+주의: 데이터 손실 방지를 위해 PVC 스냅샷 또는 수동 백업 권장
 
 ```yaml
 # apps/ghost/base/mysql-statefulset.yaml
@@ -319,19 +282,18 @@ kubectl top pods -n observers
 
 ## 정기 점검 (월 1회)
 
-- [ ] 백업 파일 확인 (OCI Object Storage)
-- [ ] 복구 테스트 (샌드박스 환경)
 - [ ] 디스크 사용량 확인 (`df -h`)
 - [ ] Vault Unseal Keys 보관 상태 확인
 - [ ] SSL 인증서 만료일 (Cloudflare 자동 갱신 확인)
 - [ ] Grafana 대시보드 검토
 - [ ] Ghost 플러그인 업데이트
+- [ ] (선택) 백업 파일 확인 및 복구 테스트 (apps/ghost/optional/ 활성화 시)
 
 ## 긴급 복구 시나리오
 
 ### 전체 클러스터 재구축
 
-1. 백업 데이터 확보 (MySQL dump, Ghost content/)
+1. (선택) 백업 데이터 확보 (MySQL dump, Ghost content/ - 백업 활성화 시)
 2. k3s 재설치
 3. Argo CD 재설치 → Root App 적용
 4. Vault 재초기화 → 시크릿 재입력
@@ -344,4 +306,51 @@ kubectl top pods -n observers
 - [Vault 공식 문서](https://developer.hashicorp.com/vault/docs)
 - [Argo CD 공식 문서](https://argo-cd.readthedocs.io/)
 - [k3s 공식 문서](https://docs.k3s.io/)
+
+---
+
+## 선택 기능
+
+### 백업 & 복구 (Optional)
+
+기본 구성에서는 백업이 비활성화되어 있습니다. 활성화하려면:
+
+#### 백업 활성화
+
+자세한 설정: docs/03-vault-setup.md (선택 기능 B)
+
+#### MySQL 백업
+
+백업 CronJob이 매일 03:00에 자동 실행:
+
+```bash
+# CronJob 확인
+kubectl get cronjob -n blog mysql-backup
+
+# 최근 Job 실행 확인
+kubectl get jobs -n blog
+
+# 수동 백업 트리거
+kubectl create job -n blog manual-backup-$(date +%Y%m%d) --from=cronjob/mysql-backup
+```
+
+#### 백업 파일 확인 (OCI Object Storage)
+
+```bash
+# AWS CLI로 확인 (credentials 설정 필요)
+aws s3 ls s3://blog-backups/mysql/ --endpoint-url https://<namespace>.compat.objectstorage.<region>.oraclecloud.com
+```
+
+#### 복구
+
+```bash
+# 백업 다운로드
+aws s3 cp s3://blog-backups/mysql/20241029-030000.sql backup.sql --endpoint-url <endpoint>
+
+# MySQL Pod에 복사
+kubectl cp backup.sql blog/mysql-0:/tmp/backup.sql
+
+# 복구 실행
+kubectl exec -n blog mysql-0 -- mysql -u root -p<password> < /tmp/backup.sql
+```
 

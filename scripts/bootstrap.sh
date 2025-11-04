@@ -3,6 +3,11 @@ set -euo pipefail
 
 # blogstack-k8s Bootstrap Script
 # 전제: k3s가 이미 설치되어 있어야 함
+#
+# ⚠️ 주의: 이 스크립트는 선택사항입니다.
+# 처음 설치하시는 분은 docs/02-argocd-setup.md의 수동 설치를 권장합니다.
+# - 각 단계를 이해하고 학습할 수 있습니다
+# - 문제 발생 시 정확한 원인 파악이 가능합니다
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -39,9 +44,27 @@ check_prerequisites() {
         exit 1
     fi
     
-    # jq
-    if ! command -v jq &> /dev/null; then
-        log_warn "jq not found. Some features may not work."
+    # Git URL customization check (CRITICAL)
+    log_info "Checking Git Repository URL customization..."
+    if grep -rq "your-org/blogstack-k8s" "$ROOT_DIR/iac/" "$ROOT_DIR/clusters/" 2>/dev/null; then
+        log_error "Git Repository URL not customized!"
+        log_error "Found 'your-org' in configuration files."
+        log_error ""
+        log_error "Please follow docs/CUSTOMIZATION.md to change Git URLs:"
+        log_error "  - iac/argocd/root-app.yaml"
+        log_error "  - clusters/prod/apps.yaml"
+        log_error "  - clusters/prod/project.yaml"
+        log_error ""
+        log_error "After changing, commit and push to your repository."
+        exit 1
+    fi
+    log_info "Git URL check passed"
+    
+    # Domain check (warning only)
+    if grep -q "domain=yourdomain.com" "$ROOT_DIR/config/prod.env" 2>/dev/null; then
+        log_warn "Domain still set to 'yourdomain.com' in config/prod.env"
+        log_warn "Please update before final deployment"
+        log_warn ""
     fi
     
     log_info "Prerequisites OK"
@@ -68,6 +91,38 @@ install_argocd() {
     fi
     
     log_info "Argo CD installed successfully"
+}
+
+configure_argocd() {
+    log_info "Configuring Argo CD (Kustomize Helm support + Load Restrictor)..."
+    
+    kubectl patch configmap argocd-cm -n argocd --type merge \
+        -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
+    
+    log_info "Restarting Argo CD Repo Server..."
+    kubectl rollout restart deployment argocd-repo-server -n argocd
+    kubectl rollout status deployment argocd-repo-server -n argocd --timeout=120s
+    
+    log_info "Argo CD configured successfully"
+}
+
+create_appproject() {
+    log_info "Creating AppProject..."
+    
+    if [ ! -f "$ROOT_DIR/clusters/prod/project.yaml" ]; then
+        log_error "AppProject not found: $ROOT_DIR/clusters/prod/project.yaml"
+        exit 1
+    fi
+    
+    kubectl apply -f "$ROOT_DIR/clusters/prod/project.yaml"
+    
+    # Verify argocd namespace in destinations
+    if ! kubectl get appproject blog -n argocd -o yaml | grep -q "namespace: argocd"; then
+        log_warn "AppProject 'blog' may not have 'argocd' namespace in destinations"
+        log_warn "This may cause Root App deployment to fail"
+    fi
+    
+    log_info "AppProject created successfully"
 }
 
 deploy_root_app() {
@@ -164,10 +219,32 @@ EOF
 }
 
 main() {
+    cat <<EOF
+
+${YELLOW}╔════════════════════════════════════════════════════════════════╗
+║  blogstack-k8s Bootstrap Script (Experimental)                 ║
+║                                                                ║
+║  ⚠️  처음 설치하시는 분은 수동 설치를 권장합니다.                    ║
+║     docs/02-argocd-setup.md 참조                               ║
+║                                                                ║
+║  이 스크립트는 재설치나 테스트 환경용으로 제공됩니다.               ║
+╚════════════════════════════════════════════════════════════════╝${NC}
+
+EOF
+    
+    read -p "Continue with automated installation? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Aborted. Please follow docs/02-argocd-setup.md for manual installation."
+        exit 0
+    fi
+    
     log_info "Starting blogstack-k8s bootstrap..."
     
     check_prerequisites
     install_argocd
+    configure_argocd
+    create_appproject
     deploy_root_app
     wait_for_vault
     print_next_steps

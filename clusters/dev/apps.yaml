@@ -8,7 +8,7 @@ metadata:
 spec:
   project: blog-dev
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/observers/overlays/dev
     targetRevision: HEAD
   destination:
@@ -29,7 +29,7 @@ metadata:
 spec:
   project: blog-dev
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/ingress-nginx/overlays/dev
     targetRevision: HEAD
   destination:
@@ -51,7 +51,7 @@ metadata:
 spec:
   project: blog-dev
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/cloudflared/overlays/dev
     targetRevision: HEAD
   destination:
@@ -73,7 +73,7 @@ metadata:
 spec:
   project: blog-dev
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     path: security/vault
     targetRevision: HEAD
   destination:
@@ -94,7 +94,7 @@ metadata:
 spec:
   project: blog-dev
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     path: security/vso
     targetRevision: HEAD
   destination:
@@ -116,7 +116,7 @@ metadata:
 spec:
   project: blog-dev
   source:
-    repoURL: https://github.com/your-org/blogstack-k8s
+    repoURL: https://github.com/gigio1023/blogstack-k8s
     path: apps/ghost/overlays/dev
     targetRevision: HEAD
   destination:
