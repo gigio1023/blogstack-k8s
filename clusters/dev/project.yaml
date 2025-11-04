@@ -8,6 +8,8 @@ spec:
   sourceRepos:
     - https://github.com/gigio1023/blogstack-k8s
   destinations:
+    - namespace: argocd
+      server: https://kubernetes.default.svc
     - namespace: blog-dev
       server: https://kubernetes.default.svc
     - namespace: observers-dev

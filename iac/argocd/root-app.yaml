@@ -9,7 +9,7 @@ spec:
   project: blog
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
-    targetRevision: feat/impl-doc-alignment
+    targetRevision: HEAD
     path: clusters/prod
   destination:
     server: https://kubernetes.default.svc

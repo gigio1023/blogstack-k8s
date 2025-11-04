@@ -98,7 +98,49 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d > ~/argocd-password.txt
 ```
 
-### 5. Root App 배포
+### 5. Argo CD 설정 (Kustomize Helm 지원)
+
+Kustomize에서 Helm Chart를 사용하고 상위 디렉터리 파일 참조를 허용하도록 설정:
+
+```bash
+kubectl patch configmap argocd-cm -n argocd --type merge -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
+```
+
+설정 적용:
+
+```bash
+kubectl rollout restart deployment argocd-repo-server -n argocd
+kubectl rollout status deployment argocd-repo-server -n argocd
+```
+
+### 6. AppProject 생성
+
+Root App이 사용할 Project를 먼저 생성:
+
+```bash
+kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+```
+
+확인:
+
+```bash
+kubectl get appproject blog -n argocd
+
+# AppProject의 destinations 확인
+kubectl get appproject blog -n argocd -o yaml | grep -A 15 "destinations:"
+```
+
+**중요**: `destinations`에 반드시 `argocd` 네임스페이스가 포함되어야 함:
+```yaml
+destinations:
+  - namespace: argocd  # ← 필수 (Root App이 자식 Application 생성용)
+    server: https://kubernetes.default.svc
+  - namespace: blog
+    server: https://kubernetes.default.svc
+  # ... 기타 네임스페이스
+```
+
+### 7. Root App 배포
 
 ```bash
 kubectl apply -f ./iac/argocd/root-app.yaml
@@ -199,7 +241,90 @@ echo "=== Check Complete ==="
 
 ## 트러블슈팅
 
-### 1. Argo CD Pod Pending
+### 1. Root App "project blog which does not exist"
+
+**증상:**
+```bash
+kubectl get application blogstack-root -n argocd
+# NAME             SYNC STATUS   HEALTH STATUS
+# blogstack-root   Unknown       Unknown
+
+kubectl describe application blogstack-root -n argocd
+# Message: Application referencing project blog which does not exist
+```
+
+**원인**: AppProject가 생성되지 않음
+
+**해결:**
+```bash
+kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl delete application blogstack-root -n argocd
+kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+```
+
+### 2. "do not match any of the allowed destinations"
+
+**증상:**
+```bash
+kubectl describe application blogstack-root -n argocd
+# Message: application destination server '...' and namespace 'argocd' 
+#          do not match any of the allowed destinations in project 'blog'
+```
+
+**원인**: AppProject의 destinations에 `argocd` 네임스페이스 없음
+
+**해결:**
+```bash
+# clusters/prod/project.yaml 확인
+kubectl get appproject blog -n argocd -o yaml | grep -A 15 "destinations:"
+
+# argocd 네임스페이스가 없으면 추가 필요
+# 파일 수정 후:
+kubectl apply -f ~/blogstack-k8s/clusters/prod/project.yaml
+kubectl delete application blogstack-root -n argocd
+kubectl apply -f ~/blogstack-k8s/iac/argocd/root-app.yaml
+```
+
+### 3. "must specify --enable-helm"
+
+**증상:**
+```bash
+kubectl get application observers -n argocd
+# NAME        SYNC STATUS   HEALTH STATUS
+# observers   Unknown       Healthy
+
+kubectl describe application observers -n argocd
+# Message: must specify --enable-helm
+```
+
+**원인**: Kustomize Helm 지원 미설정
+
+**해결:**
+```bash
+kubectl patch configmap argocd-cm -n argocd --type merge \
+  -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
+
+kubectl rollout restart deployment argocd-repo-server -n argocd
+kubectl rollout status deployment argocd-repo-server -n argocd
+
+# Application refresh
+kubectl patch application observers -n argocd \
+  --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
+```
+
+### 4. "is not in or below" (Load Restriction)
+
+**증상:**
+```bash
+kubectl describe application observers -n argocd
+# Message: file 'config/prod.env' is not in or below 'apps/observers/overlays/prod'
+```
+
+**원인**: Kustomize가 상위 디렉터리 파일 참조 차단
+
+**해결:** 위의 3번 해결 방법과 동일 (`--load-restrictor LoadRestrictionsNone` 추가)
+
+### 5. Argo CD Pod Pending
 
 ```bash
 kubectl describe pod -n argocd <pod-name>
@@ -209,7 +334,7 @@ kubectl describe pod -n argocd <pod-name>
 # - Failed to pull image → 네트워크 문제
 ```
 
-### 2. Root App OutOfSync
+### 6. Root App OutOfSync
 
 ```bash
 # 자동 동기화 대기 (3분) 또는 수동 동기화
@@ -217,7 +342,7 @@ kubectl patch application blogstack-root -n argocd \
   --type merge -p '{"operation":{"sync":{}}}'
 ```
 
-### 3. Git URL이 "your-org"로 되어 있음
+### 7. Git URL이 "your-org"로 되어 있음
 
 ```bash
 # 1. Root App 삭제

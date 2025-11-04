@@ -93,6 +93,38 @@ install_argocd() {
     log_info "Argo CD installed successfully"
 }
 
+configure_argocd() {
+    log_info "Configuring Argo CD (Kustomize Helm support + Load Restrictor)..."
+    
+    kubectl patch configmap argocd-cm -n argocd --type merge \
+        -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
+    
+    log_info "Restarting Argo CD Repo Server..."
+    kubectl rollout restart deployment argocd-repo-server -n argocd
+    kubectl rollout status deployment argocd-repo-server -n argocd --timeout=120s
+    
+    log_info "Argo CD configured successfully"
+}
+
+create_appproject() {
+    log_info "Creating AppProject..."
+    
+    if [ ! -f "$ROOT_DIR/clusters/prod/project.yaml" ]; then
+        log_error "AppProject not found: $ROOT_DIR/clusters/prod/project.yaml"
+        exit 1
+    fi
+    
+    kubectl apply -f "$ROOT_DIR/clusters/prod/project.yaml"
+    
+    # Verify argocd namespace in destinations
+    if ! kubectl get appproject blog -n argocd -o yaml | grep -q "namespace: argocd"; then
+        log_warn "AppProject 'blog' may not have 'argocd' namespace in destinations"
+        log_warn "This may cause Root App deployment to fail"
+    fi
+    
+    log_info "AppProject created successfully"
+}
+
 deploy_root_app() {
     log_info "Deploying Root App..."
     
@@ -211,6 +243,8 @@ EOF
     
     check_prerequisites
     install_argocd
+    configure_argocd
+    create_appproject
     deploy_root_app
     wait_for_vault
     print_next_steps
