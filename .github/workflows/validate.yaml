@@ -24,14 +24,23 @@ jobs:
       
       - name: Setup Kubeconform
         run: |
-          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then
+            KUBECONFORM_ARCH="amd64"
+          elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+            KUBECONFORM_ARCH="arm64"
+          else
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+          fi
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-${KUBECONFORM_ARCH}.tar.gz
           tar xf kubeconform.tar.gz
           sudo mv kubeconform /usr/local/bin/
           rm kubeconform.tar.gz
       
       - name: Validate Ghost (prod)
         run: |
-          kustomize build apps/ghost/overlays/prod | \
+          kustomize build --load-restrictor=LoadRestrictionsNone apps/ghost/overlays/prod | \
             kubeconform -summary -strict \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
@@ -39,20 +48,20 @@ jobs:
       
       - name: Validate Ingress-NGINX (prod)
         run: |
-          kustomize build apps/ingress-nginx/overlays/prod | \
+          kustomize build --load-restrictor=LoadRestrictionsNone apps/ingress-nginx/overlays/prod | \
             kubeconform -summary -strict \
             -schema-location default \
             -skip CustomResourceDefinition
       
       - name: Validate Cloudflared (prod)
         run: |
-          kustomize build apps/cloudflared/overlays/prod | \
+          kustomize build --load-restrictor=LoadRestrictionsNone apps/cloudflared/overlays/prod | \
             kubeconform -summary -strict \
             -schema-location default
       
       - name: Validate Observers (prod)
         run: |
-          kustomize build apps/observers/overlays/prod | \
+          kustomize build --load-restrictor=LoadRestrictionsNone apps/observers/overlays/prod | \
             kubeconform -summary -strict \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
@@ -60,14 +69,14 @@ jobs:
       
       - name: Validate Vault
         run: |
-          kustomize build security/vault | \
+          kustomize build --load-restrictor=LoadRestrictionsNone security/vault | \
             kubeconform -summary -strict \
             -schema-location default \
             -skip CustomResourceDefinition
       
       - name: Validate VSO
         run: |
-          kustomize build security/vso | \
+          kustomize build --load-restrictor=LoadRestrictionsNone security/vso | \
             kubeconform -summary -strict \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
