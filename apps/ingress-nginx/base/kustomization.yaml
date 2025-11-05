@@ -11,6 +11,8 @@ helmCharts:
     namespace: ingress-nginx
     valuesInline:
       controller:
+        service:
+          type: NodePort
         metrics:
           enabled: true
         config:

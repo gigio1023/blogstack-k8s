@@ -4,13 +4,13 @@ kind: Kustomization
 # Resources span multiple namespaces; each file sets its own metadata.namespace
 resources:
   - namespace.yaml
-  - auth/vault-auth.yaml            # vso namespace
-  - auth/blog-vault-auth.yaml       # blog namespace
-  - auth/cloudflared-vault-auth.yaml# cloudflared namespace
-  - secrets/ghost.yaml              # blog
-  - secrets/mysql.yaml              # blog
-  - secrets/cloudflared.yaml        # cloudflared
-  - secrets/backup.yaml             # blog
+  - auth/vault-auth.yaml
+  - auth/blog-vault-auth.yaml
+  - auth/cloudflared-vault-auth.yaml
+  - secrets/ghost.yaml
+  - secrets/mysql.yaml
+  - secrets/cloudflared.yaml
+  - secrets/backup.yaml
 
 helmCharts:
   - name: vault-secrets-operator
