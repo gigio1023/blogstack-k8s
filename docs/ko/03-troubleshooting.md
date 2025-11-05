@@ -52,7 +52,7 @@ echo "Token length: ${#TUNNEL_TOKEN}"  # 184 characters
 #### 최소 설정 테스트
 
 ```bash
-docker run --rm cloudflare/cloudflared:2025.10.0 \
+docker run --rm docker.io/cloudflare/cloudflared:2025.10.0 \
   tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"
 ```
 
@@ -64,7 +64,7 @@ docker run --rm cloudflare/cloudflared:2025.10.0 \
 docker run --rm \
   -p 2000:2000 \
   -e TUNNEL_METRICS=0.0.0.0:2000 \
-  cloudflare/cloudflared:2025.10.0 \
+  docker.io/cloudflare/cloudflared:2025.10.0 \
   tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"
 ```
 
@@ -100,8 +100,8 @@ git push
 특정 flag가 지원되는지 확인:
 
 ```bash
-docker run --rm cloudflare/cloudflared:2025.10.0 tunnel run --help | grep "metrics"
-docker run --rm cloudflare/cloudflared:2025.10.0 tunnel run --help | grep "\[$"
+docker run --rm docker.io/cloudflare/cloudflared:2025.10.0 tunnel run --help | grep "metrics"
+docker run --rm docker.io/cloudflare/cloudflared:2025.10.0 tunnel run --help | grep "\[$"
 # [$로 끝나는 것들은 환경변수로 설정 가능
 ```
 
