@@ -549,34 +549,42 @@ Cloudflare Tunnel은 **Ingress Controller로 연결**해야 합니다.
    - https://one.dash.cloudflare.com/
 
 2. **Tunnel 설정 페이지 이동:**
-   - **Networks** → **Tunnels** → `blogstack` (터널 이름) → **Configure** 버튼 클릭
+   - **Networks** → **Tunnels** → `blogstack-tunnel` (터널 이름) 클릭
 
-3. **Hostname Routes 추가:**
-   - **"Add a route"** 또는 **"Add hostname route"** 클릭
-   - "Route to a public or private hostname" 옵션 선택 (베타 딱지가 있을 수 있음)
+3. **Published application routes 섹션으로 이동:**
+   - 터널 상세 페이지에서 **"Published application routes"** 섹션 찾기
+   - **"Add a published application route"** 버튼 클릭
 
 4. **설정 입력:**
 
 | 항목 | 입력 값 | 설명 |
 |------|--------|------|
 | **Hostname** | `yourdomain.com` | **구매한 도메인 이름 입력**<br>예: `sunghogigio.com`<br>서브도메인 사용 시: `blog.yourdomain.com` |
-| **Service** | `http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller 주소<br>프로토콜 포함 (http://) |
+| **Service** | `http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller 주소<br>**반드시 `http://` 프로토콜 포함!** |
 
-5. **Save** 또는 **Add route** 클릭
+5. **Description** (선택): 간단한 설명 입력 (예: "Blog main site")
+
+6. **Create** 버튼 클릭
 
 **입력 예시:**
 ```
 Hostname: yourdomain.com
 Service: http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80
+Description: Blog main site
 ```
 
 > **중요:**
 > - **Hostname**: 본인이 소유한 도메인을 그대로 입력 (Cloudflare에 등록된 도메인)
-> - **Service**: `http://` 프로토콜 명시 + Ingress Controller의 클러스터 내부 DNS 이름
-> - Ingress Controller를 타겟으로 하는 이유:
->   - Ingress가 `X-Forwarded-Proto: https` 헤더를 추가
+> - **Service**: 
+>   - **반드시 `http://` 프로토콜 명시!** (`https://` 아님!)
+>   - Ingress Controller의 클러스터 내부 DNS 이름 사용
+>   - 포트 `80` 사용 (443 아님!)
+> - **HTTP를 사용하는 이유:**
+>   - 외부 → Cloudflare: HTTPS (Cloudflare가 처리)
+>   - Cloudflare → Tunnel → 클러스터: 암호화됨 (Tunnel이 처리)
+>   - 클러스터 내부: HTTP (안전한 내부망, 암호화 불필요)
+>   - Ingress가 `X-Forwarded-Proto: https` 헤더 추가
 >   - Ghost가 올바른 HTTPS 리다이렉트 생성
->   - Ghost 설정(`url=https://...`)과 프로토콜 일치
 
 **Service 이름 확인:**
 ```bash
