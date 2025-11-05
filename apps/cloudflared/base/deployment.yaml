@@ -24,7 +24,6 @@ spec:
             - run
             - --token
             - $(TUNNEL_TOKEN)
-            - --metrics=0.0.0.0:2000
             - --edge-ip-version
             - auto
           ports:
@@ -36,6 +35,8 @@ spec:
                 secretKeyRef:
                   name: cloudflared-token
                   key: token
+            - name: TUNNEL_METRICS
+              value: "0.0.0.0:2000"
           readinessProbe:
             httpGet:
               path: /ready
