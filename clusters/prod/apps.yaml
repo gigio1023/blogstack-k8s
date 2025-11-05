@@ -175,7 +175,7 @@ spec:
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
-    # namespace intentionally omitted; resources declare their own namespaces (vso, blog, cloudflared)
+    namespace: vso
   syncPolicy:
     automated:
       prune: true
