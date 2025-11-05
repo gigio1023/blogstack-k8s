@@ -5,7 +5,7 @@ namespace: cloudflared
 
 resources:
   - ../../base
-  - servicemonitor.yaml
+  # - servicemonitor.yaml  # Prometheus Operator CRD not installed
   - networkpolicy.yaml
   - namespace.yaml
 
