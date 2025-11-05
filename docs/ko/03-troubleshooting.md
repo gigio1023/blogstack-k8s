@@ -38,6 +38,73 @@ kubectl patch application ghost -n argocd -p '{"operation": {"sync": {"revision"
 
 ## Cloudflared
 
+### 배포 전 Docker 검증
+
+배포 전에 로컬에서 cloudflared 명령어를 검증합니다.
+
+#### 토큰 추출
+
+```bash
+TUNNEL_TOKEN=$(kubectl get secret cloudflared-token -n cloudflared -o jsonpath='{.data.token}' | base64 -d)
+echo "Token length: ${#TUNNEL_TOKEN}"  # 184 characters
+```
+
+#### 최소 설정 테스트
+
+```bash
+docker run --rm cloudflare/cloudflared:2025.10.0 \
+  tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"
+```
+
+예상 출력: `Connection registered`
+
+#### Metrics 포함 테스트
+
+```bash
+docker run --rm \
+  -p 2000:2000 \
+  -e TUNNEL_METRICS=0.0.0.0:2000 \
+  cloudflare/cloudflared:2025.10.0 \
+  tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"
+```
+
+다른 터미널에서 확인:
+```bash
+curl http://localhost:2000/metrics  # Prometheus metrics 출력
+```
+
+#### 성공한 명령어를 YAML로 적용
+
+Docker에서 성공한 args를 `apps/cloudflared/base/deployment.yaml`에 적용:
+
+```yaml
+args:
+  - tunnel
+  - --no-autoupdate
+  - run
+  - --token
+  - $(TUNNEL_TOKEN)
+env:
+  - name: TUNNEL_METRICS
+    value: "0.0.0.0:2000"
+```
+
+```bash
+git add apps/cloudflared/base/deployment.yaml
+git commit -m "fix: validated cloudflared args"
+git push
+```
+
+#### Flag 개별 검증
+
+특정 flag가 지원되는지 확인:
+
+```bash
+docker run --rm cloudflare/cloudflared:2025.10.0 tunnel run --help | grep "metrics"
+docker run --rm cloudflare/cloudflared:2025.10.0 tunnel run --help | grep "\[$"
+# [$로 끝나는 것들은 환경변수로 설정 가능
+```
+
 ### CrashLoopBackOff (--metrics 오류)
 
 `apps/cloudflared/base/deployment.yaml` 수정:
