@@ -232,8 +232,12 @@ Complete documentation in Korean:
 3. [01-infrastructure.md](./docs/ko/01-infrastructure.md) - k3s 설치
 4. [02-argocd-setup.md](./docs/ko/02-argocd-setup.md) - Argo CD 설치
 5. [03-vault-setup.md](./docs/ko/03-vault-setup.md) - Vault 초기화
-6. [04-operations.md](./docs/ko/04-operations.md) - 운영 가이드
-7. [RESET.md](./docs/ko/RESET.md) - 전체 재시작 가이드
+6. [03-1-ingress-setup.md](./docs/ko/03-1-ingress-setup.md) - Ingress-nginx 설정
+7. [03-2-cloudflare-setup.md](./docs/ko/03-2-cloudflare-setup.md) - Cloudflare Tunnel 및 Zero Trust
+8. [03-3-verification.md](./docs/ko/03-3-verification.md) - 전체 시스템 검증
+9. [03-troubleshooting.md](./docs/ko/03-troubleshooting.md) - 트러블슈팅
+10. [04-operations.md](./docs/ko/04-operations.md) - 운영 가이드
+11. [RESET.md](./docs/ko/RESET.md) - 전체 재시작 가이드
 
 Additional:
 - [CONFORMANCE.md](./docs/ko/CONFORMANCE.md) - 설계 및 정합성

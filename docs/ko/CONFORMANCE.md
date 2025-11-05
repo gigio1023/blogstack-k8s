@@ -299,12 +299,17 @@ annotations:
 
 **해결**:
 ```bash
-# Ingress 확인
-kubectl get ingress -n blog ghost -o yaml | grep -A5 annotations
+# ingress-nginx의 use-forwarded-headers 설정 확인
+kubectl get configmap ingress-nginx-controller -n ingress-nginx -o jsonpath='{.data.use-forwarded-headers}'
+# 출력: true (정상)
 
-# configuration-snippet이 있어야 함:
-# nginx.ingress.kubernetes.io/configuration-snippet: |
-#   proxy_set_header X-Forwarded-Proto https;
+# Ingress 확인
+kubectl get ingress -n blog ghost -o jsonpath='{.spec.ingressClassName}'
+# 출력: nginx (정상)
+
+# 문제 지속 시 재시작
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
+kubectl rollout restart deployment ghost -n blog
 ```
 
 참고: [Ghost Reverse Proxy Docs](https://docs.ghost.org/faq/proxying-https-infinite-loops)

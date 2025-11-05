@@ -90,23 +90,23 @@ LogQL 예시:
 
 **해결:**
 ```bash
-# Ingress 확인
-kubectl get ingress -n blog ghost -o yaml | grep -A5 annotations
+# ingress-nginx의 use-forwarded-headers 설정 확인
+kubectl get configmap ingress-nginx-controller -n ingress-nginx -o jsonpath='{.data.use-forwarded-headers}'
+# 출력: true (활성화됨)
 
-# configuration-snippet이 있는지 확인:
-# proxy_set_header X-Forwarded-Proto https;
+# Ingress가 올바른 ingressClassName을 사용하는지 확인
+kubectl get ingress -n blog ghost -o jsonpath='{.spec.ingressClassName}'
+# 출력: nginx
 ```
 
-**대안:**
-```yaml
-# apps/ghost/base/ingress.yaml에 추가
-metadata:
-  annotations:
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Proto https;
-```
+설정이 올바른데도 문제가 지속되면:
+```bash
+# ingress-nginx Pod 재시작
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
 
-Git commit → Push → Argo CD 자동 동기화
+# Ghost Pod 재시작
+kubectl rollout restart deployment ghost -n blog
+```
 
 ### 2. Cloudflare Tunnel 연결 끊김
 
