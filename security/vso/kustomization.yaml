@@ -10,7 +10,7 @@ resources:
   - secrets/ghost.yaml
   - secrets/mysql.yaml
   - secrets/cloudflared.yaml
-  - secrets/backup.yaml
+  # backup.yaml is optional and should be applied manually from secrets/optional/
 
 helmCharts:
   - name: vault-secrets-operator
