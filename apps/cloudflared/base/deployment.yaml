@@ -24,8 +24,6 @@ spec:
             - run
             - --token
             - $(TUNNEL_TOKEN)
-            - --edge-ip-version
-            - auto
           ports:
             - name: metrics
               containerPort: 2000
