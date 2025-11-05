@@ -200,25 +200,27 @@ kubectl get applications -n argocd
 # observers          Synced        Healthy
 # observers-probes   Synced        Healthy
 # ingress-nginx      Synced        Healthy
-# cloudflared        Synced        Degraded      ⚠️ 정상
-# vault              Synced        Healthy
+# cloudflared        Synced        Degraded      ⚠️ 정상 (Vault 시크릿 대기)
+# vault              Synced        Progressing   ⚠️ 정상 (미초기화)
 # vso-operator       Synced        Healthy
 # vso-resources      Synced        Healthy
-# ghost              Synced        Degraded      ⚠️ 정상
+# ghost              Synced        Degraded      ⚠️ 정상 (Vault 시크릿 대기)
 ```
 
-Degraded 이유: Vault 시크릿 미입력 (다음 단계에서 해결)
+Degraded/Progressing 이유: Vault 미초기화 및 시크릿 미입력 (다음 단계에서 해결)
 
 ```bash
 # Pod 상태 확인
 kubectl get pods -A | grep -E "NAMESPACE|blog|vault|cloudflared"
 
 # 예상:
-# vault/vault-0: Running (0/1 정상 - Sealed 상태)
-# cloudflared/cloudflared-*: CrashLoopBackOff (시크릿 대기)
-# blog/mysql-0: Running
-# blog/ghost-*: CrashLoopBackOff (시크릿 대기)
+# vault/vault-0: 0/1 Running (Sealed 상태 - 미초기화)
+# cloudflared/cloudflared-*: 0/1 CreateContainerConfigError (시크릿 없음)
+# blog/mysql-0: 0/1 CreateContainerConfigError (시크릿 없음)
+# blog/ghost-*: 0/1 CreateContainerConfigError (시크릿 없음)
 ```
+
+**중요**: CreateContainerConfigError는 정상입니다. Vault가 초기화되지 않아서 시크릿이 아직 생성되지 않았기 때문입니다.
 
 ---
 
@@ -241,9 +243,10 @@ echo "=== Check Complete ==="
 
 진행 조건:
 - Argo CD Pod 모두 Running
-- Vault Pod Running (0/1 정상)
-- 모든 Application Synced (8개)
-- cloudflared, ghost만 Degraded (Vault 시크릿 대기)
+- Vault Pod Running (0/1 정상 - 미초기화)
+- 모든 Application Synced (9개)
+- vault, cloudflared, ghost가 Degraded/Progressing (Vault 미초기화 - 정상)
+- VaultStaticSecret 리소스는 생성되었지만 K8s Secret은 아직 없음
 
 ---
 
@@ -437,12 +440,15 @@ ssh -L 8080:localhost:8080 -i ~/.ssh/oci_key ubuntu@<VM_IP>
 Argo CD 설치 완료
 
 현재 상태:
-- Argo CD 설치 완료
-- 모든 Application 배포 (Synced)
-- Vault Pod Running (Sealed)
-- cloudflared, ghost 시크릿 대기 중 (정상)
+- ✅ Argo CD 설치 완료
+- ✅ 모든 Application 배포 (Synced)
+- ✅ VSO 리소스 생성 완료 (VaultAuth, VaultStaticSecret)
+- ⏳ Vault Pod Running (0/1 - 미초기화 상태)
+- ⏳ cloudflared, ghost Pod이 시크릿 대기 중 (CreateContainerConfigError)
 
-다음: [03-vault-setup.md](./03-vault-setup.md) - Vault 초기화 및 시크릿 입력 (15분)
+**다음 필수 단계**: Vault를 초기화하고 시크릿을 입력해야 모든 Pod이 정상 작동합니다.
+
+다음: [03-vault-setup.md](./03-vault-setup.md) - Vault 초기화 및 시크릿 입력 (20분)
 
 ---
 
