@@ -509,21 +509,23 @@ Token을 입력했으면 Cloudflare에서 **Public Hostname** 설정이 필요�
 
 ### 중요: Cloudflare Tunnel 설정 종류
 
-Cloudflare Tunnel에는 2가지 설정 방식이 있습니다:
+Cloudflare Tunnel에는 2가지 라우트 방식이 있습니다:
 
-1. **Public Hostname (Hostname Routes)** ← **우리가 사용할 방식**
-   - 외부 인터넷에서 접근 가능한 웹사이트/서비스용
-   - 도메인 이름(hostname)으로 라우팅
-   - HTTP/HTTPS 트래픽용
-   - 예: `blog.example.com` → 클러스터 내부 서비스
+1. **Hostname Routes** ← **우리가 사용할 방식**
+   - Public 또는 Private Hostname으로 라우팅
+   - 도메인 이름으로 트래픽 전달
+   - HTTP/HTTPS 웹 서비스용
+   - 예: `yourdomain.com` → 클러스터 내부 Ingress
 
-2. **Private Network (CIDR Routes)**
-   - 사설 네트워크 접근용 (VPN 대체)
+2. **CIDR Routes** (Private Networks)
    - IP 주소 범위(CIDR)로 라우팅
+   - 사설 네트워크 전체 접근용 (VPN 대체)
    - 모든 프로토콜 지원
    - 예: `10.0.0.0/24` → 사설 네트워크
 
-**Ghost 블로그는 Public Hostname을 사용합니다.** (외부 인터넷에서 접근하는 웹사이트이므로)
+**Ghost 블로그는 Hostname Routes를 사용합니다.** (도메인으로 접근하는 웹사이트이므로)
+
+> **참고**: Hostname Routes는 현재 베타 기능일 수 있지만 정상적으로 작동합니다.
 
 ### 트래픽 흐름 이해
 
@@ -541,7 +543,7 @@ Ghost Service
 
 Cloudflare Tunnel은 **Ingress Controller로 연결**해야 합니다.
 
-### Public Hostname 설정 (Hostname Routes)
+### Hostname Routes 설정
 
 1. **Cloudflare Zero Trust 대시보드 접속:**
    - https://one.dash.cloudflare.com/
@@ -549,34 +551,39 @@ Cloudflare Tunnel은 **Ingress Controller로 연결**해야 합니다.
 2. **Tunnel 설정 페이지 이동:**
    - **Networks** → **Tunnels** → `blogstack` (터널 이름) → **Configure** 버튼 클릭
 
-3. **Public Hostnames 탭 선택:**
-   - 상단 탭에서 **"Public Hostnames"** 선택 (Private Networks 아님!)
+3. **Hostname Routes 추가:**
+   - **"Add a route"** 또는 **"Add hostname route"** 클릭
+   - "Route to a public or private hostname" 옵션 선택 (베타 딱지가 있을 수 있음)
 
-4. **Add a public hostname 클릭:**
+4. **설정 입력:**
 
-| 항목 | 값 | 설명 |
-|------|-----|------|
-| **Subdomain** | (비워둠) | Apex 도메인 사용 시 비워둠<br>서브도메인 사용 시: `blog` |
-| **Domain** | `yourdomain.com` | 실제 도메인 선택 (드롭다운) |
-| **Path** | (비워둠) | 모든 경로 허용 (선택사항) |
-| **Service** > **Type** | **HTTP** | 클러스터 내부는 HTTP |
-| **Service** > **URL** | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller DNS 이름:포트 |
+| 항목 | 입력 값 | 설명 |
+|------|--------|------|
+| **Hostname** | `yourdomain.com` | **구매한 도메인 이름 입력**<br>예: `sunghogigio.com`<br>서브도메인 사용 시: `blog.yourdomain.com` |
+| **Service** | `http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller 주소<br>프로토콜 포함 (http://) |
 
-5. **Save hostname** 클릭
+5. **Save** 또는 **Add route** 클릭
 
-**설정 예시 스크린샷 (참고):**
+**입력 예시:**
 ```
-Public Hostname: yourdomain.com
-Service: HTTP://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80
+Hostname: yourdomain.com
+Service: http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80
 ```
 
-> **중요 참고:**
-> - **Public Hostnames** 탭에서 설정합니다 (Private Networks 탭 아님!)
+> **중요:**
+> - **Hostname**: 본인이 소유한 도메인을 그대로 입력 (Cloudflare에 등록된 도메인)
+> - **Service**: `http://` 프로토콜 명시 + Ingress Controller의 클러스터 내부 DNS 이름
 > - Ingress Controller를 타겟으로 하는 이유:
 >   - Ingress가 `X-Forwarded-Proto: https` 헤더를 추가
 >   - Ghost가 올바른 HTTPS 리다이렉트 생성
->   - Ghost 설정(`url=https://...`)과 실제 프로토콜 일치
-> - Service 이름 확인: `kubectl get svc -n ingress-nginx`
+>   - Ghost 설정(`url=https://...`)과 프로토콜 일치
+
+**Service 이름 확인:**
+```bash
+kubectl get svc -n ingress-nginx
+# NAME                                 TYPE        CLUSTER-IP      PORT(S)
+# ingress-nginx-controller             ClusterIP   10.43.x.x       80/TCP,443/TCP
+```
 
 ### Zero Trust Access 정책
 
