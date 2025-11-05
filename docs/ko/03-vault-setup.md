@@ -32,14 +32,7 @@ kubectl get secrets -n blog
 # Vault CLI 버전 확인
 vault version
 
-# 설치되지 않았다면 설치 (Ubuntu/Debian)
-if ! command -v vault &> /dev/null; then
-    echo "Vault CLI 설치 중..."
-    wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-    sudo apt update && sudo apt install vault -y
-    vault version
-fi
+# 설치되지 않았다면 설치 https://developer.hashicorp.com/vault/install#linux 참고하여 설치
 ```
 
 ## Vault 초기화 프로세스
@@ -180,12 +173,14 @@ vault auth list
 Vault가 Kubernetes API와 통신하도록 설정:
 
 ```bash
-# K8s API 서버 정보
-K8S_HOST=$(kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[0].cluster.server}')
+# K8s API 서버 정보 (클러스터 내부 주소 사용)
+# 중요: Vault Pod는 클러스터 내부에서 실행되므로 kubernetes.default.svc 사용
+K8S_HOST="https://kubernetes.default.svc:443"
 
 # ServiceAccount JWT 생성 (Kubernetes 1.24+ 호환)
 # Vault Helm chart가 자동으로 'vault' SA를 생성했으므로 해당 SA로 토큰 생성
-TOKEN_REVIEWER_JWT=$(kubectl create token vault -n vault --duration=87600h)
+# 토큰 만료: 8760h = 1년 (보안과 관리 편의성 균형)
+TOKEN_REVIEWER_JWT=$(kubectl create token vault -n vault --duration=8760h)
 
 # CA Certificate
 K8S_CA_CERT=$(kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 -d)
@@ -196,9 +191,16 @@ vault write auth/kubernetes/config \
     kubernetes_host="$K8S_HOST" \
     kubernetes_ca_cert="$K8S_CA_CERT" \
     disable_local_ca_jwt=true
+
+# 설정 확인
+vault read auth/kubernetes/config
+# kubernetes_host가 https://kubernetes.default.svc:443 이어야 함
 ```
 
-> **참고**: `disable_local_ca_jwt=true`를 설정하면 Vault가 Pod 내부의 SA 토큰이 아닌 위에서 생성한 토큰을 사용합니다.
+> **중요**: 
+> - `kubernetes_host`는 **반드시** `https://kubernetes.default.svc:443`을 사용해야 합니다
+> - `kubectl config view`로 얻는 `127.0.0.1:6443`은 로컬 개발 환경용이며, 클러스터 내부에서는 접근 불가능합니다
+> - `disable_local_ca_jwt=true`를 설정하면 Vault가 Pod 내부의 SA 토큰이 아닌 위에서 생성한 장기 토큰을 사용합니다
 
 ### 3. Role 생성 (VSO 인증 설정)
 
