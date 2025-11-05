@@ -14,3 +14,6 @@ configMapGenerator:
     envs:
       - ../../../../config/prod.env
 
+generatorOptions:
+  disableNameSuffixHash: true
+

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vso
+
+resources:
+  - namespace.yaml
+
+helmCharts:
+  - name: vault-secrets-operator
+    repo: https://helm.releases.hashicorp.com
+    version: 0.6.0
+    releaseName: vso
+    namespace: vso
+    includeCRDs: true
+    valuesInline: {}
+

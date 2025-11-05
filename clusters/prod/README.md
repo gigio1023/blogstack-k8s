@@ -31,20 +31,24 @@ spec:
 
 | Wave | Application | Path | 설명 |
 |------|------------|------|------|
-| -2 | observers | apps/observers/overlays/prod | Prometheus, Loki, Blackbox (관측 우선) |
+| -2 | observers | apps/observers/overlays/prod | Prometheus, Grafana, Loki (CRD 설치) |
+| -1 | observers-probes | apps/observers-probes/overlays/prod | Blackbox Exporter Probe |
 | -1 | ingress-nginx | apps/ingress-nginx/overlays/prod | Ingress Controller + 메트릭 |
 | 0 | cloudflared | apps/cloudflared/overlays/prod | Cloudflare Tunnel |
 | 1 | vault | security/vault | HashiCorp Vault (Raft) |
-| 2 | vso | security/vso | Vault Secrets Operator |
-| 3 | ghost | apps/ghost/overlays/prod | Ghost + MySQL |
+| 2 | vso-operator | security/vso-operator | Vault Secrets Operator (CRD 설치) |
+| 3 | vso-resources | security/vso-resources | Vault 연결 및 시크릿 매핑 |
+| 4 | ghost | apps/ghost/overlays/prod | Ghost + MySQL |
 
 ### Sync 옵션
 
 각 Application에 적용된 공통 옵션:
 
-- `CreateNamespace=true`: 네임스페이스 자동 생성
-- `PruneLast=true`: 삭제는 마지막에 수행
-- `SkipDryRunOnMissingResource=true`: CRD 직후 리소스 적용 시 필요
+- `CreateNamespace=true`: 네임스페이스 자동 생성 (대부분 앱)
+- `PruneLast=true`: 삭제는 마지막에 수행 (모든 앱)
+- `automated.prune`, `automated.selfHeal`: 자동 동기화 및 복구 (모든 앱)
+
+**참고**: `SkipDryRunOnMissingResource`는 제거됨 (Wave 순서로 의존성 해결)
 
 ## AppProject
 

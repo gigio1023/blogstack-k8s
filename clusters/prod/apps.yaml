@@ -1,3 +1,17 @@
+# BlogStack Applications
+# Deployment order controlled by sync-wave annotations
+#
+# Architecture:
+# - observers: Prometheus/Grafana/Loki stack (installs CRDs)
+# - observers-probes: Blackbox Exporter probes (uses Probe CRD)
+# - ingress-nginx: Ingress controller (uses ServiceMonitor CRD)
+# - cloudflared: Cloudflare Tunnel for ingress
+# - vault: HashiCorp Vault for secrets
+# - vso-operator: Vault Secrets Operator (installs CRDs)
+# - vso-resources: Vault connection and secret mappings (uses VSO CRDs)
+# - ghost: Ghost CMS + MySQL (uses VaultStaticSecret CRD)
+
+---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -22,7 +36,31 @@ spec:
       - CreateNamespace=true
       - PruneLast=true
       - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observers-probes
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: blog
+  source:
+    repoURL: https://github.com/gigio1023/blogstack-k8s
+    path: apps/observers-probes/overlays/prod
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observers
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - SkipDryRunOnMissingResource=true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -48,7 +86,6 @@ spec:
       - CreateNamespace=true
       - PruneLast=true
       - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -74,7 +111,6 @@ spec:
       - CreateNamespace=true
       - PruneLast=true
       - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -99,13 +135,11 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
-      - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: vso
+  name: vso-operator
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -113,7 +147,7 @@ spec:
   project: blog
   source:
     repoURL: https://github.com/gigio1023/blogstack-k8s
-    path: security/vso
+    path: security/vso-operator
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
@@ -125,6 +159,29 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vso-resources
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: blog
+  source:
+    repoURL: https://github.com/gigio1023/blogstack-k8s
+    path: security/vso-resources
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    # namespace intentionally omitted; resources declare their own namespaces (vso, blog, cloudflared)
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - PruneLast=true
       - SkipDryRunOnMissingResource=true
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -133,7 +190,7 @@ metadata:
   name: ghost
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   project: blog
   source:
@@ -150,6 +207,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
-      - SkipDryRunOnMissingResource=true
-      - ServerSideApply=true
-

@@ -9,6 +9,7 @@ Argo CD installation for GitOps and App-of-Apps pattern deployment
 - Argo CD: Git-based declarative deployment tool
 - Manual installation recommended (transparency, learning, debugging)
 - Estimated time: 15 minutes
+- **Important**: Applications are separated to resolve CRD dependencies (8 total)
 
 ---
 
@@ -153,14 +154,16 @@ Verify:
 kubectl get applications -n argocd
 
 # Expected output (after ~30 seconds):
-# NAME              SYNC STATUS   HEALTH STATUS   
-# blogstack-root    Synced        Healthy
-# observers         Synced        Progressing
-# ingress-nginx     Synced        Progressing
-# cloudflared       Synced        Progressing
-# vault             Synced        Progressing
-# vso               Synced        Progressing
-# ghost             Synced        Progressing
+# NAME               SYNC STATUS   HEALTH STATUS   
+# blogstack-root     Synced        Healthy
+# observers          Synced        Progressing
+# observers-probes   Synced        Progressing
+# ingress-nginx      Synced        Progressing
+# cloudflared        Synced        Progressing
+# vault              Synced        Progressing
+# vso-operator       Synced        Progressing
+# vso-resources      Synced        Progressing
+# ghost              Synced        Progressing
 ```
 
 ---
@@ -171,12 +174,14 @@ Auto-deployment by Sync Wave order (total 5-10 minutes):
 
 | Wave | App | Role | Time |
 |------|-----|------|------|
-| `-2` | observers | Prometheus, Grafana, Loki | 3-5 min |
+| `-2` | observers | Prometheus, Grafana, Loki (installs CRDs) | 3-5 min |
+| `-1` | observers-probes | Blackbox Exporter Probe | 30 sec |
 | `-1` | ingress-nginx | Ingress Controller | 1-2 min |
 | `0` | cloudflared | Cloudflare Tunnel | 1 min |
 | `1` | vault | HashiCorp Vault | 1-2 min |
-| `2` | vso | Vault Secrets Operator | 1 min |
-| `3` | ghost | Ghost + MySQL | 2-3 min |
+| `2` | vso-operator | Vault Secrets Operator (installs CRDs) | 1 min |
+| `3` | vso-resources | Vault connections and secret mappings | 30 sec |
+| `4` | ghost | Ghost + MySQL | 2-3 min |
 
 ### Real-time Monitoring
 
@@ -190,14 +195,16 @@ watch -n 5 kubectl get applications -n argocd
 ```bash
 kubectl get applications -n argocd
 
-# NAME              SYNC STATUS   HEALTH STATUS
-# blogstack-root    Synced        Healthy
-# observers         Synced        Healthy
-# ingress-nginx     Synced        Healthy
-# cloudflared       Synced        Degraded      ⚠️ Normal
-# vault             Synced        Healthy
-# vso               Synced        Healthy
-# ghost             Synced        Degraded      ⚠️ Normal
+# NAME               SYNC STATUS   HEALTH STATUS
+# blogstack-root     Synced        Healthy
+# observers          Synced        Healthy
+# observers-probes   Synced        Healthy
+# ingress-nginx      Synced        Healthy
+# cloudflared        Synced        Degraded      ⚠️ Normal
+# vault              Synced        Healthy
+# vso-operator       Synced        Healthy
+# vso-resources      Synced        Healthy
+# ghost              Synced        Degraded      ⚠️ Normal
 ```
 
 Degraded reason: Vault secrets not yet injected (resolved in next step)
@@ -235,7 +242,7 @@ echo "=== Check Complete ==="
 Proceed if:
 - All Argo CD Pods Running
 - Vault Pod Running (0/1 normal)
-- All Applications Synced
+- All Applications Synced (8 total)
 - Only cloudflared, ghost Degraded
 
 ---

@@ -127,14 +127,19 @@ watch kubectl get applications -n argocd
 ```
 
 Expected sync order (by wave):
-- `-2`: observers (Prometheus, Grafana, Loki)
-- `-1`: ingress-nginx
+- `-2`: observers (Prometheus, Grafana, Loki - installs monitoring CRDs)
+- `-1`: observers-probes, ingress-nginx
 - `0`: cloudflared
 - `1`: vault
-- `2`: vso
-- `3`: ghost
+- `2`: vso-operator (installs Vault CRDs)
+- `3`: vso-resources (Vault connections and secrets)
+- `4`: ghost
 
-### 4. Initialize Vault
+### 4. Initialize Vault (must follow full guide)
+
+Important: You must configure Kubernetes Auth roles and policies before injecting secrets. Follow the detailed guide: docs/ko/03-vault-setup.md (or docs/en/03-vault-setup.md).
+
+Quick outline (do not skip the full guide):
 
 ```bash
 # Wait for Vault pod
@@ -150,8 +155,13 @@ cd security/vault/init-scripts
 
 # Backup init-output.json (contains unseal keys and root token)
 
-# Inject secrets
-export VAULT_TOKEN=<root-token-from-init-output>
+# Login
+export VAULT_TOKEN=$(jq -r .root_token init-output.json)
+
+# Enable/configure Kubernetes auth and write minimal policies/roles (see full guide)
+# ... see docs/ko/03-vault-setup.md → "Kubernetes Auth 구성" 섹션 ...
+
+# Inject secrets (match exactly these keys)
 
 # Ghost
 vault kv put kv/blog/prod/ghost \
@@ -162,17 +172,19 @@ vault kv put kv/blog/prod/ghost \
   database__connection__password="<password>" \
   database__connection__database="ghost"
 
-# MySQL
+# MySQL (must include all four keys)
 vault kv put kv/blog/prod/mysql \
   root_password="<mysql-root-password>" \
-  password="<same-as-ghost-db-password>"
+  user="ghost" \
+  password="<same-as-ghost-db-password>" \
+  database="ghost"
 
 # Cloudflare Tunnel Token
 vault kv put kv/blog/prod/cloudflared \
   token="<cloudflare-tunnel-token>"
 ```
 
-After secret injection, `cloudflared` and `ghost` applications will become healthy.
+After completing the full guide and secret injection, `cloudflared` and `ghost` applications will become healthy.
 
 ### 5. Configure Cloudflare Tunnel
 
@@ -221,6 +233,7 @@ Complete documentation in Korean:
 4. [02-argocd-setup.md](./docs/ko/02-argocd-setup.md) - Argo CD 설치
 5. [03-vault-setup.md](./docs/ko/03-vault-setup.md) - Vault 초기화
 6. [04-operations.md](./docs/ko/04-operations.md) - 운영 가이드
+7. [RESET.md](./docs/ko/RESET.md) - 전체 재시작 가이드
 
 Additional:
 - [CONFORMANCE.md](./docs/ko/CONFORMANCE.md) - 설계 및 정합성

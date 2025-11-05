@@ -9,6 +9,7 @@ GitOps를 위한 Argo CD 설치 및 App-of-Apps 패턴 배포
 - Argo CD: Git 기반 선언적 배포 도구
 - 수동 설치 권장 (투명성, 학습, 디버깅 용이)
 - 예상 소요 시간: 15분
+- **중요**: Applications가 CRD 의존성 해결을 위해 분리되어 있습니다 (8개)
 
 ---
 
@@ -153,14 +154,16 @@ kubectl apply -f ./iac/argocd/root-app.yaml
 kubectl get applications -n argocd
 
 # 예상 출력 (약 30초 후):
-# NAME              SYNC STATUS   HEALTH STATUS   
-# blogstack-root    Synced        Healthy
-# observers         Synced        Progressing
-# ingress-nginx     Synced        Progressing
-# cloudflared       Synced        Progressing
-# vault             Synced        Progressing
-# vso               Synced        Progressing
-# ghost             Synced        Progressing
+# NAME               SYNC STATUS   HEALTH STATUS   
+# blogstack-root     Synced        Healthy
+# observers          Synced        Progressing
+# observers-probes   Synced        Progressing
+# ingress-nginx      Synced        Progressing
+# cloudflared        Synced        Progressing
+# vault              Synced        Progressing
+# vso-operator       Synced        Progressing
+# vso-resources      Synced        Progressing
+# ghost              Synced        Progressing
 ```
 
 ---
@@ -171,12 +174,14 @@ Sync Wave 순서에 따라 자동 배포 (총 5-10분):
 
 | Wave | App | 역할 | 소요 시간 |
 |------|-----|------|-----------|
-| `-2` | observers | Prometheus, Grafana, Loki | 3-5분 |
+| `-2` | observers | Prometheus, Grafana, Loki (CRD 설치) | 3-5분 |
+| `-1` | observers-probes | Blackbox Exporter Probe | 30초 |
 | `-1` | ingress-nginx | Ingress Controller | 1-2분 |
 | `0` | cloudflared | Cloudflare Tunnel | 1분 |
 | `1` | vault | HashiCorp Vault | 1-2분 |
-| `2` | vso | Vault Secrets Operator | 1분 |
-| `3` | ghost | Ghost + MySQL | 2-3분 |
+| `2` | vso-operator | Vault Secrets Operator (CRD 설치) | 1분 |
+| `3` | vso-resources | Vault 연결 및 시크릿 매핑 | 30초 |
+| `4` | ghost | Ghost + MySQL | 2-3분 |
 
 ### 실시간 모니터링
 
@@ -190,14 +195,16 @@ watch -n 5 kubectl get applications -n argocd
 ```bash
 kubectl get applications -n argocd
 
-# NAME              SYNC STATUS   HEALTH STATUS
-# blogstack-root    Synced        Healthy
-# observers         Synced        Healthy
-# ingress-nginx     Synced        Healthy
-# cloudflared       Synced        Degraded      ⚠️ 정상
-# vault             Synced        Healthy
-# vso               Synced        Healthy
-# ghost             Synced        Degraded      ⚠️ 정상
+# NAME               SYNC STATUS   HEALTH STATUS
+# blogstack-root     Synced        Healthy
+# observers          Synced        Healthy
+# observers-probes   Synced        Healthy
+# ingress-nginx      Synced        Healthy
+# cloudflared        Synced        Degraded      ⚠️ 정상
+# vault              Synced        Healthy
+# vso-operator       Synced        Healthy
+# vso-resources      Synced        Healthy
+# ghost              Synced        Degraded      ⚠️ 정상
 ```
 
 Degraded 이유: Vault 시크릿 미입력 (다음 단계에서 해결)
@@ -235,8 +242,8 @@ echo "=== Check Complete ==="
 진행 조건:
 - Argo CD Pod 모두 Running
 - Vault Pod Running (0/1 정상)
-- 모든 Application Synced
-- cloudflared, ghost만 Degraded
+- 모든 Application Synced (8개)
+- cloudflared, ghost만 Degraded (Vault 시크릿 대기)
 
 ---
 
@@ -459,8 +466,33 @@ chmod +x ./scripts/bootstrap.sh
 
 ---
 
+## Applications 재시작
+
+에러가 발생하거나 처음부터 다시 시작하고 싶을 때:
+
+```bash
+# Root App 삭제
+kubectl delete application blogstack-root -n argocd
+
+# 최신 코드 가져오기
+git pull origin main
+
+# 재배포
+kubectl apply -f iac/argocd/root-app.yaml
+```
+
+또는 자동 스크립트:
+```bash
+./scripts/quick-reset.sh
+```
+
+**상세 가이드**: [RESET.md](./RESET.md)
+
+---
+
 ## 참고
 
 - [Argo CD 공식 문서](https://argo-cd.readthedocs.io/)
 - [App of Apps Pattern](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/)
 - [Sync Waves](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/)
+- [전체 재시작 가이드](./RESET.md)

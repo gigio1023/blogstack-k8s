@@ -3,8 +3,8 @@ kind: Kustomization
 
 namespace: observers
 
-resources:
-  - probe.yaml
+# Note: probe.yaml moved to apps/observers-probes
+# This separation ensures CRDs are installed before resources that use them
 
 helmCharts:
   - name: kube-prometheus-stack
@@ -12,6 +12,7 @@ helmCharts:
     version: 79.0.0
     releaseName: kube-prometheus-stack
     namespace: observers
+    includeCRDs: true
     valuesInline:
       grafana:
         enabled: true
