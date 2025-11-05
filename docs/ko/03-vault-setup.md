@@ -459,16 +459,41 @@ kubectl describe vaultstaticsecret ghost-env -n blog | tail -20
 
 # 자주 보이는 에러:
 # - "Vault is sealed": Vault가 아직 unsealed 안됨 (vault status 확인)
-# - "permission denied": Role 설정 오류 (위의 Role 생성 단계 재확인)
+# - "permission denied": Role 설정 오류 또는 VSO 캐시 문제
+# - "invalid role name": Kubernetes Auth 설정 변경 후 VSO 미재시작
 # - "invalid path": 시크릿 경로 오류 (kv/blog/prod/ghost 경로 확인)
 ```
 
-2. **VSO 로그 확인:**
+2. **VSO Pod 재시작 (중요!):**
+
+Kubernetes Auth 설정을 변경한 경우 **반드시 VSO Pod을 재시작**해야 합니다:
+
 ```bash
-kubectl logs -n vso -l app.kubernetes.io/name=vault-secrets-operator --tail=50
+# VSO Pod 재시작
+kubectl delete pod -n vso -l app.kubernetes.io/name=vault-secrets-operator
+
+# 재시작 확인 (약 20초 소요)
+kubectl get pods -n vso
+# NAME                                             READY   STATUS    RESTARTS   AGE
+# vso-vault-secrets-operator-controller-manager-*  2/2     Running   0          Xs
+
+# Secret 생성 확인 (약 10-30초 후)
+kubectl get secrets -n blog
+kubectl get secrets -n cloudflared
 ```
 
-3. **Vault 연결 확인:**
+**VSO 재시작이 필요한 이유:**
+- VSO는 Vault 연결을 캐시하여 재사용합니다
+- Kubernetes Auth 설정(`kubernetes_host`, Role 등)을 변경해도 캐시된 연결은 갱신되지 않습니다
+- Pod 재시작 시 새로운 설정으로 Vault에 재연결합니다
+
+3. **VSO 로그 확인:**
+```bash
+kubectl logs -n vso -l app.kubernetes.io/name=vault-secrets-operator --tail=50
+# "permission denied" 또는 "invalid role name" 에러 확인
+```
+
+4. **Vault 연결 확인:**
 ```bash
 # VaultAuth 상태
 kubectl get vaultauth -A
@@ -480,9 +505,27 @@ kubectl describe vaultauth vault-auth -n blog
 
 ## Cloudflare Tunnel 구성
 
-Token을 입력했으면 Cloudflare에서 Public Hostname 설정:
+Token을 입력했으면 Cloudflare에서 **Public Hostname** 설정이 필요합니다.
 
-### 중요: 트래픽 흐름 이해
+### 중요: Cloudflare Tunnel 설정 종류
+
+Cloudflare Tunnel에는 2가지 설정 방식이 있습니다:
+
+1. **Public Hostname (Hostname Routes)** ← **우리가 사용할 방식**
+   - 외부 인터넷에서 접근 가능한 웹사이트/서비스용
+   - 도메인 이름(hostname)으로 라우팅
+   - HTTP/HTTPS 트래픽용
+   - 예: `blog.example.com` → 클러스터 내부 서비스
+
+2. **Private Network (CIDR Routes)**
+   - 사설 네트워크 접근용 (VPN 대체)
+   - IP 주소 범위(CIDR)로 라우팅
+   - 모든 프로토콜 지원
+   - 예: `10.0.0.0/24` → 사설 네트워크
+
+**Ghost 블로그는 Public Hostname을 사용합니다.** (외부 인터넷에서 접근하는 웹사이트이므로)
+
+### 트래픽 흐름 이해
 
 ```
 외부 사용자
@@ -498,25 +541,42 @@ Ghost Service
 
 Cloudflare Tunnel은 **Ingress Controller로 연결**해야 합니다.
 
-### Public Hostname 설정
+### Public Hostname 설정 (Hostname Routes)
 
-1. Cloudflare Zero Trust 대시보드: https://one.dash.cloudflare.com/
-2. Networks → Tunnels → `blogstack` → Configure
-3. **Public Hostnames** → Add a public hostname:
+1. **Cloudflare Zero Trust 대시보드 접속:**
+   - https://one.dash.cloudflare.com/
+
+2. **Tunnel 설정 페이지 이동:**
+   - **Networks** → **Tunnels** → `blogstack` (터널 이름) → **Configure** 버튼 클릭
+
+3. **Public Hostnames 탭 선택:**
+   - 상단 탭에서 **"Public Hostnames"** 선택 (Private Networks 아님!)
+
+4. **Add a public hostname 클릭:**
 
 | 항목 | 값 | 설명 |
 |------|-----|------|
-| Subdomain | (비워둠) | Apex 도메인 사용 |
-| Domain | `yourdomain.com` | 실제 도메인 입력 |
-| Path | (비워둠) | 모든 경로 |
-| Service Type | **HTTP** | 클러스터 내부는 HTTP |
-| URL | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller (Service:Port) |
+| **Subdomain** | (비워둠) | Apex 도메인 사용 시 비워둠<br>서브도메인 사용 시: `blog` |
+| **Domain** | `yourdomain.com` | 실제 도메인 선택 (드롭다운) |
+| **Path** | (비워둠) | 모든 경로 허용 (선택사항) |
+| **Service** > **Type** | **HTTP** | 클러스터 내부는 HTTP |
+| **Service** > **URL** | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` | Ingress Controller DNS 이름:포트 |
 
-> **왜 Ghost Service가 아닌 Ingress로?**
-> - Ingress가 `X-Forwarded-Proto: https` 헤더를 추가해야 Ghost가 올바른 리다이렉트를 생성합니다.
-> - Ghost 설정(`url=https://...`)과 실제 프로토콜을 맞춰주는 역할입니다.
-> 
-> **참고**: Service 이름은 `kubectl get svc -n ingress-nginx`로 확인 가능합니다.
+5. **Save hostname** 클릭
+
+**설정 예시 스크린샷 (참고):**
+```
+Public Hostname: yourdomain.com
+Service: HTTP://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80
+```
+
+> **중요 참고:**
+> - **Public Hostnames** 탭에서 설정합니다 (Private Networks 탭 아님!)
+> - Ingress Controller를 타겟으로 하는 이유:
+>   - Ingress가 `X-Forwarded-Proto: https` 헤더를 추가
+>   - Ghost가 올바른 HTTPS 리다이렉트 생성
+>   - Ghost 설정(`url=https://...`)과 실제 프로토콜 일치
+> - Service 이름 확인: `kubectl get svc -n ingress-nginx`
 
 ### Zero Trust Access 정책
 
