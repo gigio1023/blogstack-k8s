@@ -134,26 +134,6 @@ kubectl get secrets -n blog  # 30초 후 재확인
 
 ## 선택 기능
 
-### SMTP 이메일
-
-```bash
-vault kv put kv/blog/prod/ghost \
-  url="https://yourdomain.com" \
-  database__client="mysql" \
-  database__connection__host="mysql.blog.svc.cluster.local" \
-  database__connection__user="ghost" \
-  database__connection__password="YOUR_DB_PASSWORD" \
-  database__connection__database="ghost" \
-  mail__transport="SMTP" \
-  mail__options__service="Mailgun" \
-  mail__options__host="smtp.mailgun.org" \
-  mail__options__port="587" \
-  mail__options__auth__user="postmaster@mg.yourdomain.com" \
-  mail__options__auth__pass="YOUR_SMTP_PASSWORD"
-
-kubectl rollout restart deployment/ghost -n blog
-```
-
 ### OCI 백업
 
 ```bash
@@ -169,4 +149,4 @@ kustomize build apps/ghost/optional | kubectl apply -f -
 
 ## 다음 단계
 
-다음: [03-1-ingress-setup.md](./03-1-ingress-setup.md)
+→ [04-ingress-setup.md](./04-ingress-setup.md) - Ingress-nginx Admission Webhook

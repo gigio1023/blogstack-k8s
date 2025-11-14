@@ -1,24 +1,16 @@
-# 커스터마이징 가이드
+# 커스터마이징
 
-이 문서는 blogstack-k8s를 본인의 블로그로 커스터마이징하는 방법을 설명합니다.
+blogstack-k8s를 본인의 블로그로 커스터마이징
 
----
+## 빠른 시작
 
-## 5분 빠른 시작
-
-Fork 후 바로 배포하기 위한 최소 수정 사항 (VM 안에서 실행)
-
----
+Fork 후 배포를 위한 최소 수정 (VM에서 실행)
 
 ### 전제조건
 
-- 00-prerequisites.md 완료 (외부 서비스 모두 준비)
-- VM에 SSH 접속 완료
-- 준비한 정보: 도메인 (Cloudflare Registrar 권장), Git 저장소 URL
-
-팁: 도메인은 Cloudflare Registrar에서 구매하면 별도 Nameserver 설정이 불필요합니다
-
----
+- 00-prerequisites.md 완료
+- VM SSH 접속
+- 준비: 도메인, Git 저장소 URL
 
 ### 1단계: 리포지토리 Clone (VM 내부)
 
@@ -272,7 +264,7 @@ vault kv put kv/blog/prod/cloudflared \
 
 ### 선택 기능
 
-SMTP 이메일 발송이나 백업 자동화가 필요하면 docs/03-vault-setup.md (선택 기능) 참조
+SMTP 이메일 발송(필수)은 docs/07-smtp-setup.md, 백업 자동화는 apps/ghost/optional/README.md 참조
 
 ## 자동 주입 확인
 
