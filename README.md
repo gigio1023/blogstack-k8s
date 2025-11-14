@@ -38,12 +38,13 @@ Key design choices:
 
 ## Prerequisites
 
-Minimum requirements:
+Tested environment (not guaranteed minimum):
 
 - **Compute**: Kubernetes cluster (k3s recommended)
   - 4 CPU cores (ARM64 or x86_64)
-  - 16GB+ RAM (24GB recommended)
-  - 50GB+ disk space
+  - 24GB RAM
+  - 100GB disk space
+  - k3s can run on lower specs, but untested in this project
 - **Network**: Outbound HTTPS (443) access required
   - GitHub (manifests)
   - Docker Hub, registry.k8s.io (images)
@@ -53,11 +54,14 @@ Minimum requirements:
   - Cloudflare account (Free plan sufficient)
   - SMTP service (Mailgun, SendGrid, etc.)
 
-This project was developed and tested on Oracle Cloud Free Tier (ARM64 VM), but works on any Kubernetes cluster meeting the above specs.
+This project was developed and tested on Oracle Cloud Free Tier (ARM64 VM). The specs above are for reference only and not a guaranteed minimum requirement.
 
-For detailed requirements: [docs/en/00-prerequisites.md](./docs/en/00-prerequisites.md)
+For detailed testing environment: [docs/en/00-prerequisites.md](./docs/en/00-prerequisites.md)
 
 ## Getting Started
+
+- English Documentation: [docs/en/README.md](./docs/en/README.md)
+- Korean Documentation: [docs/ko/README.md](./docs/ko/README.md)
 
 ### Installation Steps
 
@@ -87,9 +91,6 @@ Follow the documentation in order:
 | 8 | [08-operations.md](./docs/en/08-operations.md) | Day-2 operations |
 | 9 | [09-troubleshooting.md](./docs/en/09-troubleshooting.md) | Common issues |
 
-### Korean Documentation
-
-Complete Korean guides available: [docs/ko/README.md](./docs/ko/README.md)
 
 ## Repository Structure
 
@@ -148,20 +149,6 @@ blogstack-k8s/
 - **Dashboards**: Pre-configured Grafana (cluster resources, NGINX, Vault)
 - **Logs**: Loki aggregates logs from all namespaces
 - **Health Checks**: Blackbox Exporter monitors external HTTPS endpoint
-
-## Operations
-
-### Monitoring Access
-
-```bash
-# Grafana
-kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80
-
-# Prometheus
-kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090
-```
-
-Default Grafana credentials: `admin` / `prom-operator`
 
 ### Common Tasks
 
