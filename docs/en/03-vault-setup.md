@@ -1,10 +1,10 @@
-# 03. Vault Initialization and Secret Injection
+# 03. Vault Init & Secrets
 
 ## Prerequisites
 
 - 02-argocd-setup.md completed
-- Vault Pod Running (0/1 uninitialized)
-- Vault CLI installed
+- Vault pod Running (0/1 not initialized)
+- Vault CLI required
 
 ## Initialize Vault
 
@@ -16,7 +16,7 @@ kubectl port-forward -n vault svc/vault 8200:8200 &
 export VAULT_ADDR=http://127.0.0.1:8200
 ```
 
-### Run Initialization
+### Run Init
 
 ```bash
 cd security/vault/init-scripts
@@ -25,16 +25,16 @@ chmod +x 01-init-unseal.sh
 cd ~/blogstack-k8s
 ```
 
-Important: Back up init-output.json. Never commit to Git.
+Important: Backup init-output.json, never commit to Git
 
-### Verify Status
+### Check Status
 
 ```bash
 kubectl get pods -n vault  # 1/1 Ready
 kubectl exec -n vault vault-0 -- vault status  # Sealed: false
 ```
 
-## Enable KV v2 Engine
+## Enable KV v2
 
 ```bash
 export VAULT_TOKEN=$(jq -r .root_token security/vault/init-scripts/init-output.json)
@@ -105,7 +105,7 @@ vault kv put kv/blog/prod/mysql \
   database="ghost"
 ```
 
-Important: Ghost and MySQL passwords must match.
+Important: Ghost and MySQL passwords must match
 
 ### Cloudflared
 
@@ -120,10 +120,10 @@ vault kv put kv/blog/prod/cloudflared \
 vault kv list kv/blog/prod  # cloudflared, ghost, mysql
 ```
 
-## Verify VSO Secret Sync
+## VSO Secret Sync
 
 ```bash
-# Wait 10-30 seconds for secret creation
+# Secrets created in 10-30s
 kubectl get secrets -n blog  # ghost-env, mysql-secret
 kubectl get secrets -n cloudflared  # cloudflared-token
 
@@ -133,26 +133,6 @@ kubectl get secrets -n blog  # Check after 30s
 ```
 
 ## Optional Features
-
-### SMTP Email
-
-```bash
-vault kv put kv/blog/prod/ghost \
-  url="https://yourdomain.com" \
-  database__client="mysql" \
-  database__connection__host="mysql.blog.svc.cluster.local" \
-  database__connection__user="ghost" \
-  database__connection__password="YOUR_DB_PASSWORD" \
-  database__connection__database="ghost" \
-  mail__transport="SMTP" \
-  mail__options__service="Mailgun" \
-  mail__options__host="smtp.mailgun.org" \
-  mail__options__port="587" \
-  mail__options__auth__user="postmaster@mg.yourdomain.com" \
-  mail__options__auth__pass="YOUR_SMTP_PASSWORD"
-
-kubectl rollout restart deployment/ghost -n blog
-```
 
 ### OCI Backup
 
@@ -169,4 +149,4 @@ kustomize build apps/ghost/optional | kubectl apply -f -
 
 ## Next Steps
 
-Next: [03-1-ingress-setup.md](./03-1-ingress-setup.md)
+→ [04-ingress-setup.md](./04-ingress-setup.md) - Ingress-nginx admission webhook
