@@ -1,265 +1,185 @@
 # blogstack-k8s
 
-GitOps-based self-hosted Ghost blog infrastructure on k3s.
+GitOps-based self-hosted Ghost blog infrastructure on Kubernetes
+
+## Overview
+
+Production-ready Ghost blog deployment using GitOps principles. Manages secrets with Vault, deploys via Argo CD, and exposes services through Cloudflare Tunnel without public ingress ports.
 
 ## Stack
 
-- **Kubernetes**: k3s
+- **Kubernetes**: k3s (lightweight, single-node optimized)
 - **GitOps**: Argo CD (App-of-Apps pattern)
-- **Secret Management**: HashiCorp Vault OSS + Vault Secrets Operator
+- **Secret Management**: HashiCorp Vault OSS + Vault Secrets Operator (VSO)
 - **Ingress**: ingress-nginx + Cloudflare Tunnel (Zero Trust)
 - **Application**: Ghost 5.x + MySQL 8.0
 - **Observability**: Prometheus, Grafana, Loki, Promtail, Blackbox Exporter
 
-## Prerequisites
-
-- Oracle Cloud VM.Standard.A1.Flex (ARM64, 4 OCPU, 24GB RAM)
-- Domain name (Cloudflare managed)
-- Cloudflare Zero Trust account + Tunnel
-
 ## Architecture
 
 ```
-Internet → Cloudflare Tunnel (outbound HTTPS)
+Internet
    ↓
-Oracle Cloud VM (ARM64)
-   ├─ k3s Cluster
-   │  ├─ Argo CD (GitOps)
-   │  ├─ Vault + VSO (Secrets)
-   │  ├─ cloudflared (HA) → ingress-nginx → Ghost + MySQL
-   │  └─ Prometheus + Grafana + Loki
-   └─ Local Path Provisioner (PVC)
+Cloudflare Tunnel (outbound HTTPS only)
+   ↓
+Kubernetes Cluster
+   ├─ Argo CD (GitOps controller)
+   ├─ Vault + VSO (secret injection)
+   ├─ cloudflared → ingress-nginx → Ghost
+   ├─ MySQL (StatefulSet + PVC)
+   └─ Prometheus + Grafana + Loki
 ```
 
-## Quick Start
+Key design choices:
+- No public ingress required (Cloudflare Tunnel initiates outbound connection)
+- Secrets never stored in Git (Vault + VSO sync to Kubernetes)
+- Declarative deployment (Argo CD watches Git for changes)
+- Persistent storage for MySQL and Vault data
 
-### 1. Customize Configuration
+## Prerequisites
 
-```bash
-git clone https://github.com/<your-org>/blogstack-k8s
-cd blogstack-k8s
+Minimum requirements:
 
-# Update repository URLs
-OLD_URL="https://github.com/your-org/blogstack-k8s"
-NEW_URL="https://github.com/<your-org>/blogstack-k8s"
+- **Compute**: Kubernetes cluster (k3s recommended)
+  - 4 CPU cores (ARM64 or x86_64)
+  - 16GB+ RAM (24GB recommended)
+  - 50GB+ disk space
+- **Network**: Outbound HTTPS (443) access required
+  - GitHub (manifests)
+  - Docker Hub, registry.k8s.io (images)
+  - Cloudflare API (tunnel connection)
+- **External Services**:
+  - Domain name (any registrar, Cloudflare DNS required)
+  - Cloudflare account (Free plan sufficient)
+  - SMTP service (Mailgun, SendGrid, etc.)
 
-sed -i "s|$OLD_URL|$NEW_URL|g" iac/argocd/root-app.yaml
-sed -i "s|$OLD_URL|$NEW_URL|g" clusters/prod/apps.yaml
-sed -i "s|$OLD_URL|$NEW_URL|g" clusters/prod/project.yaml
+This project was developed and tested on Oracle Cloud Free Tier (ARM64 VM), but works on any Kubernetes cluster meeting the above specs.
 
-# Update domain in config/prod.env
-vim config/prod.env
+For detailed requirements: [docs/en/00-prerequisites.md](./docs/en/00-prerequisites.md)
 
-git add .
-git commit -m "chore: customize configuration"
-git push origin main
+## Getting Started
+
+### Installation Steps
+
+Follow the documentation in order:
+
+```
+00. Prerequisites → 01. k3s Setup → 02. Argo CD → 03. Vault
+    ↓
+04. Ingress → 05. Cloudflare → 06. Verification → 07. SMTP
+    ↓
+08. Operations
 ```
 
-### 2. Install k3s
+### Quick Navigation
 
-```bash
-curl -sfL https://get.k3s.io | sh -s - \
-  --disable traefik \
-  --write-kubeconfig-mode 644
-```
-
-### 3. Install Argo CD
-
-```bash
-cd ~/blogstack-k8s
-
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl wait --for=condition=available --timeout=300s deployment -n argocd --all
-
-# Configure Kustomize
-kubectl patch configmap argocd-cm -n argocd --type merge \
-  -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
-
-kubectl rollout restart deployment argocd-repo-server -n argocd
-kubectl rollout status deployment argocd-repo-server -n argocd
-
-# Deploy
-kubectl apply -f clusters/prod/project.yaml
-kubectl apply -f iac/argocd/root-app.yaml
-```
-
-Monitor:
-```bash
-watch kubectl get applications -n argocd
-```
-
-### 4. Initialize Vault
-
-Follow detailed setup guide: [docs/en/03-vault-setup.md](./docs/en/03-vault-setup.md)
-
-Quick outline:
-
-```bash
-kubectl get pods -n vault -w
-kubectl port-forward -n vault svc/vault 8200:8200 &
-
-export VAULT_ADDR=http://127.0.0.1:8200
-cd security/vault/init-scripts
-./01-init-unseal.sh
-
-# Backup init-output.json
-export VAULT_TOKEN=$(jq -r .root_token init-output.json)
-
-# Configure Kubernetes Auth (see full guide)
-
-# Inject secrets
-vault kv put kv/blog/prod/ghost \
-  url="https://yourdomain.com" \
-  database__client="mysql" \
-  database__connection__host="mysql.blog.svc.cluster.local" \
-  database__connection__user="ghost" \
-  database__connection__password="<password>" \
-  database__connection__database="ghost"
-
-vault kv put kv/blog/prod/mysql \
-  root_password="<root-password>" \
-  user="ghost" \
-  password="<same-password>" \
-  database="ghost"
-
-vault kv put kv/blog/prod/cloudflared \
-  token="<tunnel-token>"
-```
-
-### 5. Configure Cloudflare
-
-Follow: [docs/en/03-2-cloudflare-setup.md](./docs/en/03-2-cloudflare-setup.md)
-
-1. Networks → Tunnels → Public Hostname
-2. Add: yourdomain.com → http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80
-3. Access → Applications → Add `/ghost/*` path with authentication
-
-### 6. Verify
-
-```bash
-kubectl get applications -n argocd
-kubectl get pods -A
-curl -I https://yourdomain.com
-```
-
-## Documentation
-
-### Complete Setup Guides
-
-1. [00-prerequisites.md](./docs/en/00-prerequisites.md)
-2. [CUSTOMIZATION.md](./docs/en/CUSTOMIZATION.md)
-3. [01-infrastructure.md](./docs/en/01-infrastructure.md)
-4. [02-argocd-setup.md](./docs/en/02-argocd-setup.md)
-5. [03-vault-setup.md](./docs/en/03-vault-setup.md)
-6. [03-1-ingress-setup.md](./docs/en/03-1-ingress-setup.md)
-7. [03-2-cloudflare-setup.md](./docs/en/03-2-cloudflare-setup.md)
-8. [03-3-verification.md](./docs/en/03-3-verification.md)
-9. [03-troubleshooting.md](./docs/en/03-troubleshooting.md)
-10. [04-operations.md](./docs/en/04-operations.md)
+| Step | Document | Description |
+|------|----------|-------------|
+| 0 | [00-prerequisites.md](./docs/en/00-prerequisites.md) | Requirements checklist |
+| - | [CUSTOMIZATION.md](./docs/en/CUSTOMIZATION.md) | Fork repo, update Git URLs & domain |
+| 1 | [01-infrastructure.md](./docs/en/01-infrastructure.md) | Install k3s cluster |
+| 2 | [02-argocd-setup.md](./docs/en/02-argocd-setup.md) | Deploy Argo CD & App-of-Apps |
+| 3 | [03-vault-setup.md](./docs/en/03-vault-setup.md) | Initialize Vault, inject secrets |
+| 4 | [04-ingress-setup.md](./docs/en/04-ingress-setup.md) | Fix ingress-nginx webhook |
+| 5 | [05-cloudflare-setup.md](./docs/en/05-cloudflare-setup.md) | Configure Tunnel & Zero Trust |
+| 6 | [06-verification.md](./docs/en/06-verification.md) | Verify deployment |
+| 7 | [07-smtp-setup.md](./docs/en/07-smtp-setup.md) | Configure email (required) |
+| 8 | [08-operations.md](./docs/en/08-operations.md) | Day-2 operations |
+| 9 | [09-troubleshooting.md](./docs/en/09-troubleshooting.md) | Common issues |
 
 ### Korean Documentation
 
-Complete Korean versions: [docs/ko/](./docs/ko/)
-
-### Additional Resources
-
-- [SECURITY.md](./docs/en/SECURITY.md)
-- [CONFORMANCE.md](./docs/en/CONFORMANCE.md)
-- [ENVIRONMENTS.md](./docs/en/ENVIRONMENTS.md)
-- [CI.md](./docs/en/CI.md)
-- [RESET.md](./docs/en/RESET.md)
+Complete Korean guides available: [docs/ko/README.md](./docs/ko/README.md)
 
 ## Repository Structure
 
 ```
 blogstack-k8s/
 ├── config/
-│   └── prod.env             # Centralized config
+│   ├── prod.env              # Environment config (domain, URLs)
+│   └── dev.env
 ├── iac/argocd/
-│   └── root-app.yaml        # Root Application
+│   └── root-app.yaml         # Root Application (App-of-Apps)
 ├── clusters/prod/
-│   ├── project.yaml         # AppProject
-│   └── apps.yaml            # Child Applications
+│   ├── project.yaml          # Argo CD AppProject
+│   └── apps.yaml             # Child Application definitions
 ├── apps/
-│   ├── ghost/               # Ghost + MySQL
-│   ├── ingress-nginx/       # Ingress controller
-│   ├── cloudflared/         # Cloudflare Tunnel
-│   └── observers/           # Prometheus + Grafana + Loki
+│   ├── ghost/                # Ghost CMS + MySQL
+│   │   ├── base/
+│   │   └── overlays/prod/
+│   ├── ingress-nginx/        # Ingress controller
+│   ├── cloudflared/          # Cloudflare Tunnel connector
+│   └── observers/            # Prometheus stack (Helm)
 ├── security/
-│   ├── vault/               # Vault (Raft)
-│   └── vso/                 # Vault Secrets Operator
-└── docs/                    # Documentation
+│   ├── vault/                # Vault StatefulSet (Raft storage)
+│   │   ├── policies/
+│   │   └── init-scripts/
+│   └── vso/                  # Vault Secrets Operator
+│       ├── operator/         # VSO Helm chart
+│       └── resources/        # VaultAuth, VaultStaticSecret CRDs
+└── docs/                     # Documentation (en, ko)
 ```
+
+## Key Features
+
+### GitOps with Argo CD
+
+- **App-of-Apps Pattern**: Single root app deploys all components
+- **Sync Waves**: Controlled deployment order (observers → ingress → vault → ghost)
+- **Declarative**: Git is source of truth, manual `kubectl` not required
+- **Auto-Sync**: Changes pushed to Git automatically deploy (configurable)
+
+### Secret Management
+
+- **Vault**: Secrets stored in Vault (never in Git)
+- **VSO**: Automatically syncs Vault secrets to Kubernetes secrets
+- **Per-Namespace Isolation**: Separate ServiceAccounts and Vault roles
+- **Least Privilege**: NetworkPolicies restrict access to Vault
+
+### Zero-Trust Networking
+
+- **No Public Ports**: Cloudflare Tunnel initiates outbound connection
+- **Cloudflare Access**: Optional authentication for `/ghost/*` admin panel
+- **Internal-Only Services**: MySQL, Vault accessible only within cluster
+
+### Observability
+
+- **Metrics**: Prometheus scrapes Ghost, MySQL, ingress-nginx, cloudflared
+- **Dashboards**: Pre-configured Grafana (cluster resources, NGINX, Vault)
+- **Logs**: Loki aggregates logs from all namespaces
+- **Health Checks**: Blackbox Exporter monitors external HTTPS endpoint
 
 ## Operations
 
-### Monitoring
+### Monitoring Access
 
 ```bash
 # Grafana
 kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80
-# http://localhost:3000 (admin/prom-operator)
 
 # Prometheus
 kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090
 ```
 
-### Backup (Optional)
+Default Grafana credentials: `admin` / `prom-operator`
 
-```bash
-vault kv put kv/blog/prod/backup \
-  AWS_ENDPOINT="https://namespace.compat.objectstorage.region.oraclecloud.com" \
-  AWS_ACCESS_KEY_ID="<key>" \
-  AWS_SECRET_ACCESS_KEY="<secret>" \
-  BUCKET_NAME="blog-backups"
+### Common Tasks
 
-kubectl apply -f apps/ghost/optional/
-kubectl apply -f security/vso/secrets/optional/
-```
+| Task | Reference |
+|------|-----------|
+| Update domain or Git URL | [CUSTOMIZATION.md](./docs/en/CUSTOMIZATION.md) |
+| Change SMTP settings | [07-smtp-setup.md](./docs/en/07-smtp-setup.md) |
+| Update Vault secrets | [03-vault-setup.md](./docs/en/03-vault-setup.md), [08-operations.md](./docs/en/08-operations.md) |
+| Restart applications | [RESET.md](./docs/en/RESET.md) |
+| Troubleshoot issues | [09-troubleshooting.md](./docs/en/09-troubleshooting.md) |
+| Enable backups (optional) | [08-operations.md](./docs/en/08-operations.md) |
 
-### SMTP (Optional)
+## Additional Resources
 
-```bash
-vault kv patch kv/blog/prod/ghost \
-  mail__transport="SMTP" \
-  mail__options__service="Mailgun" \
-  mail__options__host="smtp.mailgun.org" \
-  mail__options__port="587" \
-  mail__options__auth__user="postmaster@mg.yourdomain.com" \
-  mail__options__auth__pass="<password>"
-```
-
-## Troubleshooting
-
-### Argo CD Application Unknown/Unknown
-
-```bash
-kubectl describe application blogstack-root -n argocd
-kubectl apply -f clusters/prod/project.yaml
-```
-
-### Kustomize Error
-
-```bash
-kubectl patch configmap argocd-cm -n argocd --type merge \
-  -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
-
-kubectl rollout restart deployment argocd-repo-server -n argocd
-```
-
-### Vault Sealed
-
-```bash
-kubectl port-forward -n vault svc/vault 8200:8200 &
-export VAULT_ADDR=http://127.0.0.1:8200
-
-vault operator unseal <key-1>
-vault operator unseal <key-2>
-vault operator unseal <key-3>
-```
-
-See [03-troubleshooting.md](./docs/en/03-troubleshooting.md) for more.
+- [SECURITY.md](./docs/en/SECURITY.md) - Security design (NetworkPolicy, RBAC, PSS)
+- [CONFORMANCE.md](./docs/en/CONFORMANCE.md) - Architecture details & compliance
+- [ENVIRONMENTS.md](./docs/en/ENVIRONMENTS.md) - Multi-environment setup (dev/prod)
+- [CI.md](./docs/en/CI.md) - GitHub Actions validation pipeline
 
 ## Technology Versions
 
@@ -276,16 +196,13 @@ See [03-troubleshooting.md](./docs/en/03-troubleshooting.md) for more.
 | Monitoring | kube-prometheus-stack | 79.0+ |
 | Logging | Loki + Promtail | 5.39+ |
 
-## Development
+## Contributing
 
-```bash
-# Validate manifests
-kustomize build apps/ghost/overlays/prod
-kustomize build apps/ghost/overlays/prod | kubeconform -strict
-
-# Health check
-./scripts/health-check.sh
-```
+Contributions welcome. Please:
+- Follow existing manifest structure
+- Test with `kustomize build` and `kubeconform`
+- Update relevant documentation
+- Run CI validation: `make validate`
 
 ## License
 
@@ -293,8 +210,8 @@ MIT
 
 ## Notes
 
-- Default Grafana password: `admin` (change after first login)
-- Vault data persists in PVC
+- Vault data persists on PVC (survives pod restarts)
+- MySQL uses StatefulSet with persistent storage
 - Cloudflare Tunnel runs in HA mode (2 replicas)
-- Ghost uses MySQL StatefulSet with persistent storage
-- Backup and SMTP features are optional
+- SMTP configuration required for Ghost password resets
+- Backup to object storage is optional (see docs)
