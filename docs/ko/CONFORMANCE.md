@@ -50,7 +50,7 @@ blogstack-k8s/
 
 ### A.7 선택 기능
 - 백업: 필요 시 `apps/ghost/optional/` 참조 (MySQL + Content → OCI S3)
-- SMTP: 필요 시 Ghost 시크릿에 `mail__*` 필드 추가 (docs/03-vault-setup.md 선택 기능 참조)
+- SMTP: 필수 (docs/07-smtp-setup.md 참조)
 
 ### A.8 네트워킹/보안 요점
 - Cloudflare Tunnel(아웃바운드 전용), `/ghost/*` Zero Trust Access
@@ -98,7 +98,7 @@ kubectl get app observers ingress-nginx cloudflared vault vso ghost -n argocd 2>
 ---
 
 ### B.2 Ingress-NGINX + Cloudflare Tunnel
-- 문서: `docs/03-vault-setup.md` (Cloudflare 섹션), `docs/04-operations.md`
+- 문서: `docs/03-vault-setup.md` (Cloudflare 섹션), `docs/08-operations.md`
 - 구현: `apps/ingress-nginx/**`, `apps/cloudflared/**`, `apps/ghost/base/ingress.yaml`
 
 핵심 주장
@@ -134,7 +134,7 @@ kubectl get secrets -n cloudflared | grep cloudflared-token || true
 ---
 
 ### B.4 애플리케이션(Ghost + MySQL)
-- 문서: `docs/02-argocd-setup.md`(동기화), `docs/04-operations.md`
+- 문서: `docs/02-argocd-setup.md`(동기화), `docs/08-operations.md`
 - 구현: `apps/ghost/**`
 
 핵심 주장
@@ -151,7 +151,7 @@ kubectl get pvc -n blog | egrep 'ghost-content|data-mysql'
 ---
 
 ### B.5 관측/알림
-- 문서: `docs/04-operations.md`
+- 문서: `docs/08-operations.md`
 - 구현: `apps/observers/**`, `security/vault/servicemonitor.yaml`, `apps/ingress-nginx/overlays/prod/servicemonitor.yaml`, `apps/cloudflared/overlays/prod/servicemonitor.yaml`
 
 핵심 주장
@@ -167,7 +167,7 @@ kubectl get probe -n observers blog-external -o yaml | grep static:
 ---
 
 ### B.6 백업 (선택 기능)
-- 문서: `apps/ghost/optional/README.md`, `docs/03-vault-setup.md` (선택 기능)
+- 문서: `apps/ghost/optional/README.md`
 - 구현: `apps/ghost/optional/backup-cronjob.yaml`, `apps/ghost/optional/content-backup-cronjob.yaml`
 
 기본 구성에서는 비활성화됨. 필요 시 `apps/ghost/optional/` 참조하여 활성화
@@ -175,7 +175,7 @@ kubectl get probe -n observers blog-external -o yaml | grep static:
 ---
 
 ### B.7 헬스체크/운영 스크립트
-- 문서: `README.md`(사용법 링크), `docs/04-operations.md`
+- 문서: `README.md`(사용법 링크), `docs/08-operations.md`
 - 구현: `scripts/health-check.sh`
 
 핵심 주장

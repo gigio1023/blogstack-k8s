@@ -1,52 +1,53 @@
-# 03-1. Ingress-nginx Admission Webhook Setup
+# 04. Ingress-nginx Admission Webhook 설정
 
-## Problem
+## 문제
 
-Helm-based ingress-nginx deployment via Argo CD leaves admission webhook caBundle unset.
+Argo CD Helm 통합으로 ingress-nginx 배포 시 admission webhook의 caBundle 미설정
 
-**Error**:
+에러:
 ```
 x509: certificate signed by unknown authority
 ```
 
-## Solution
+## 해결
 
 ```bash
-# Set caBundle
+# caBundle 설정
 CA=$(kubectl get secret ingress-nginx-admission -n ingress-nginx -o jsonpath='{.data.ca}')
 kubectl patch validatingwebhookconfiguration ingress-nginx-admission \
   --type='json' \
   -p='[{"op": "add", "path": "/webhooks/0/clientConfig/caBundle", "value":"'$CA'"}]'
 
-# Verify
+# 확인
 kubectl get validatingwebhookconfiguration ingress-nginx-admission \
-  -o jsonpath='{.webhooks[0].clientConfig.caBundle}' | wc -c  # 700+
+  -o jsonpath='{.webhooks[0].clientConfig.caBundle}' | wc -c
+# 700+ 출력
 
-# Sync Argo CD Application
+# Ghost Application Sync
 kubectl patch application ghost -n argocd \
   -p '{"operation": {"sync": {"revision": "HEAD"}}}' --type merge
 
-# Verify Ingress creation
-kubectl get ingress -n blog  # ghost ingress created
+# Ingress 생성 확인
+kubectl get ingress -n blog
+# ghost ingress 생성됨
 ```
 
-## Troubleshooting
+## 트러블슈팅
 
-### Ingress Still Not Created
+### Ingress 생성 안됨
 
 ```bash
 kubectl describe application ghost -n argocd | grep -A 10 "Message:"
 kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
 ```
 
-### Certificate Regeneration Required
+### 인증서 재생성
 
 ```bash
 kubectl delete secret ingress-nginx-admission -n ingress-nginx
 kubectl delete pod -n ingress-nginx -l app.kubernetes.io/component=controller
 ```
 
-## Next Steps
+## 다음 단계
 
-Next: [03-2-cloudflare-setup.md](./03-2-cloudflare-setup.md)
-
+→ [05-cloudflare-setup.md](./05-cloudflare-setup.md) - Cloudflare Tunnel Public Hostname 설정

@@ -1,8 +1,6 @@
-# Applications 재시작 가이드
+# Applications 재시작
 
-Argo CD Applications를 빠르게 재시작하는 간단한 절차입니다.
-
----
+Argo CD Applications 재시작 절차
 
 ## 언제 사용하나요?
 
@@ -21,8 +19,6 @@ Argo CD Applications를 빠르게 재시작하는 간단한 절차입니다.
 cd ~/blogstack-k8s
 ./scripts/quick-reset.sh
 ```
-
-**소요 시간**: 약 1~2분 + 자동 배포 5~10분
 
 ---
 
@@ -197,7 +193,7 @@ kubectl apply -f iac/argocd/root-app.yaml
 
 **A**: 
 - Applications만 재시작: Vault 데이터 유지, 재초기화 불필요
-- 네임스페이스 삭제: Vault PVC 삭제됨, 재초기화 필요 ([03-vault-setup.md](./03-vault-setup.md))
+- 네임스페이스 삭제: Vault PVC 삭제됨, 재초기화 필요 ([03-vault-setup.md](./03-vault-setup.md), [07-smtp-setup.md](./07-smtp-setup.md))
 
 ### Q: 얼마나 자주 재시작해야 하나요?
 
@@ -212,4 +208,5 @@ kubectl apply -f iac/argocd/root-app.yaml
 
 - [02-argocd-setup.md](./02-argocd-setup.md): 초기 설치 가이드
 - [03-vault-setup.md](./03-vault-setup.md): Vault 초기화
-- [04-operations.md](./04-operations.md): 운영 가이드
+- [07-smtp-setup.md](./07-smtp-setup.md): SMTP 이메일 설정
+- [08-operations.md](./08-operations.md): 운영 가이드
