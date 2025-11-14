@@ -2,48 +2,30 @@
 
 GitOps를 위한 Argo CD 설치 및 App-of-Apps 패턴 배포
 
----
-
 ## 개요
 
 - Argo CD: Git 기반 선언적 배포 도구
-- 수동 설치 권장 (투명성, 학습, 디버깅 용이)
+- Applications가 CRD 의존성 해결을 위해 8개로 분리됨
 - 예상 소요 시간: 15분
-- **중요**: Applications가 CRD 의존성 해결을 위해 분리되어 있습니다 (8개)
-
----
 
 ## 전제 조건
 
-- k3s 설치 완료 ([01-infrastructure.md](./01-infrastructure.md))
-- VM SSH 접속 상태
+- k3s 설치 완료 (01-infrastructure.md)
+- VM SSH 접속
 - 프로젝트 디렉토리: `~/blogstack-k8s`
-- **모든 명령어는 프로젝트 루트 디렉터리(`~/blogstack-k8s`)에서 실행**
+- 모든 명령어는 프로젝트 루트에서 실행
 
 ### Git URL 변경 확인 (필수)
-
-3개 파일에서 `your-org`가 없어야 함:
 
 ```bash
 cd ~/blogstack-k8s
 
-# 1. Root App
-grep "repoURL" iac/argocd/root-app.yaml
-
-# 2. Child Apps (6개)
-grep "repoURL" clusters/prod/apps.yaml
-
-# 3. Project
-grep "sourceRepos" clusters/prod/project.yaml
-
-# 한 번에 확인
+# your-org가 없어야 함
 grep -r "your-org/blogstack-k8s" iac/ clusters/prod/
 # 출력 없으면 OK
 ```
 
-변경 안 됨 → [CUSTOMIZATION.md](./CUSTOMIZATION.md) 참조
-
----
+변경 안 됨 → CUSTOMIZATION.md 참조
 
 ## 설치 단계
 
@@ -59,8 +41,6 @@ kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ```
 
-약 30-50개 리소스 생성 (CustomResourceDefinition, ServiceAccount, Deployment 등)
-
 ### 3. Pod 배포 대기 (2-3분)
 
 ```bash
@@ -68,22 +48,14 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 kubectl get pods -n argocd -w
 # Ctrl+C로 종료
 
-# 또는 wait 명령어
+# 또는
 kubectl wait --for=condition=available --timeout=300s deployment -n argocd --all
 ```
 
-모든 Pod이 Running 상태 확인:
-
+확인:
 ```bash
 kubectl get pods -n argocd
-
-# 예상 출력:
-# NAME                                  READY   STATUS    RESTARTS   AGE
-# argocd-application-controller-0       1/1     Running   0          2m
-# argocd-dex-server-xyz                 1/1     Running   0          2m
-# argocd-redis-xyz                      1/1     Running   0          2m
-# argocd-repo-server-xyz                1/1     Running   0          2m
-# argocd-server-xyz                     1/1     Running   0          2m
+# 모두 Running
 ```
 
 ### 4. Admin 비밀번호 확인
@@ -93,53 +65,28 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
-비밀번호 저장 (선택):
-
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d > ~/argocd-password.txt
-```
-
 ### 5. Argo CD 설정 (Kustomize Helm 지원)
 
-Kustomize에서 Helm Chart를 사용하고 상위 디렉터리 파일 참조를 허용하도록 설정:
-
 ```bash
-kubectl patch configmap argocd-cm -n argocd --type merge -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
-```
+kubectl patch configmap argocd-cm -n argocd --type merge \
+  -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
 
-설정 적용:
-
-```bash
 kubectl rollout restart deployment argocd-repo-server -n argocd
 kubectl rollout status deployment argocd-repo-server -n argocd
 ```
 
 ### 6. AppProject 생성
 
-Root App이 사용할 Project를 먼저 생성:
-
 ```bash
 kubectl apply -f ./clusters/prod/project.yaml
 ```
 
 확인:
-
 ```bash
 kubectl get appproject blog -n argocd
 
-# AppProject의 destinations 확인
+# destinations 확인 (argocd 네임스페이스 필수)
 kubectl get appproject blog -n argocd -o yaml | grep -A 15 "destinations:"
-```
-
-**중요**: `destinations`에 반드시 `argocd` 네임스페이스가 포함되어야 함:
-```yaml
-destinations:
-  - namespace: argocd  # ← 필수 (Root App이 자식 Application 생성용)
-    server: https://kubernetes.default.svc
-  - namespace: blog
-    server: https://kubernetes.default.svc
-  # ... 기타 네임스페이스
 ```
 
 ### 7. Root App 배포
@@ -149,49 +96,45 @@ kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
 확인:
-
 ```bash
 kubectl get applications -n argocd
-
-# 예상 출력 (약 30초 후):
-# NAME               SYNC STATUS   HEALTH STATUS   
-# blogstack-root     Synced        Healthy
-# observers          Synced        Progressing
-# observers-probes   Synced        Progressing
-# ingress-nginx      Synced        Progressing
-# cloudflared        Synced        Progressing
-# vault              Synced        Progressing
-# vso-operator       Synced        Progressing
-# vso-resources      Synced        Progressing
-# ghost              Synced        Progressing
 ```
 
----
+예상 출력 (30초 후):
+```
+NAME               SYNC STATUS   HEALTH STATUS   
+blogstack-root     Synced        Healthy
+observers          Synced        Progressing
+observers-probes   Synced        Progressing
+ingress-nginx      Synced        Progressing
+cloudflared        Synced        Progressing
+vault              Synced        Progressing
+vso-operator       Synced        Progressing
+vso-resources      Synced        Progressing
+ghost              Synced        Progressing
+```
 
 ## Applications 동기화 대기
 
-Sync Wave 순서에 따라 자동 배포 (총 5-10분):
+Sync Wave 순서 (총 5-10분):
 
-| Wave | App | 역할 | 소요 시간 |
-|------|-----|------|-----------|
-| `-2` | observers | Prometheus, Grafana, Loki (CRD 설치) | 3-5분 |
-| `-1` | observers-probes | Blackbox Exporter Probe | 30초 |
+| Wave | App | 역할 | 소요 |
+|------|-----|------|------|
+| `-2` | observers | Prometheus, Grafana, Loki | 3-5분 |
+| `-1` | observers-probes | Blackbox Exporter | 30초 |
 | `-1` | ingress-nginx | Ingress Controller | 1-2분 |
 | `0` | cloudflared | Cloudflare Tunnel | 1분 |
 | `1` | vault | HashiCorp Vault | 1-2분 |
-| `2` | vso-operator | Vault Secrets Operator (CRD 설치) | 1분 |
+| `2` | vso-operator | Vault Secrets Operator | 1분 |
 | `3` | vso-resources | Vault 연결 및 시크릿 매핑 | 30초 |
 | `4` | ghost | Ghost + MySQL | 2-3분 |
 
-### 실시간 모니터링
-
+실시간 모니터링:
 ```bash
-# 5초마다 갱신
 watch -n 5 kubectl get applications -n argocd
 ```
 
-### 예상 최종 상태 (10분 후)
-
+예상 최종 상태 (10분 후):
 ```bash
 kubectl get applications -n argocd
 
@@ -200,34 +143,31 @@ kubectl get applications -n argocd
 # observers          Synced        Healthy
 # observers-probes   Synced        Healthy
 # ingress-nginx      Synced        Healthy
-# cloudflared        Synced        Degraded      ⚠️ 정상 (Vault 시크릿 대기)
-# vault              Synced        Progressing   ⚠️ 정상 (미초기화)
+# cloudflared        Synced        Degraded      ← 정상 (Vault 시크릿 대기)
+# vault              Synced        Progressing   ← 정상 (미초기화)
 # vso-operator       Synced        Healthy
 # vso-resources      Synced        Healthy
-# ghost              Synced        Degraded      ⚠️ 정상 (Vault 시크릿 대기)
+# ghost              Synced        Degraded      ← 정상 (Vault 시크릿 대기)
 ```
 
-Degraded/Progressing 이유: Vault 미초기화 및 시크릿 미입력 (다음 단계에서 해결)
+Degraded/Progressing: Vault 미초기화 및 시크릿 미입력 (다음 단계에서 해결)
 
+Pod 상태:
 ```bash
-# Pod 상태 확인
 kubectl get pods -A | grep -E "NAMESPACE|blog|vault|cloudflared"
 
-# 예상:
-# vault/vault-0: 0/1 Running (Sealed 상태 - 미초기화)
+# vault/vault-0: 0/1 Running (Sealed - 미초기화)
 # cloudflared/cloudflared-*: 0/1 CreateContainerConfigError (시크릿 없음)
 # blog/mysql-0: 0/1 CreateContainerConfigError (시크릿 없음)
 # blog/ghost-*: 0/1 CreateContainerConfigError (시크릿 없음)
 ```
 
-**중요**: CreateContainerConfigError는 정상입니다. Vault가 초기화되지 않아서 시크릿이 아직 생성되지 않았기 때문입니다.
-
----
+CreateContainerConfigError는 정상 (Vault 미초기화로 시크릿 미생성)
 
 ## 설치 완료 확인
 
 ```bash
-echo "=== Argo CD Check ==="
+echo "=== Argo CD 확인 ==="
 
 # Argo CD Pods
 kubectl get pods -n argocd --no-headers | awk '{print $1 " - " $3}'
@@ -238,79 +178,40 @@ kubectl get pods -n vault --no-headers | awk '{print $1 " - " $3}'
 # Applications
 kubectl get applications -n argocd --no-headers | awk '{print $1 " - " $2 " - " $3}'
 
-echo "=== Check Complete ==="
+echo "=== 완료 ==="
 ```
 
 진행 조건:
 - Argo CD Pod 모두 Running
 - Vault Pod Running (0/1 정상 - 미초기화)
 - 모든 Application Synced (9개)
-- vault, cloudflared, ghost가 Degraded/Progressing (Vault 미초기화 - 정상)
-- VaultStaticSecret 리소스는 생성되었지만 K8s Secret은 아직 없음
-
----
+- vault, cloudflared, ghost Degraded/Progressing (정상)
 
 ## 트러블슈팅
 
-### 1. Root App "project blog which does not exist"
+### Root App "project blog which does not exist"
 
-**증상:**
-```bash
-kubectl get application blogstack-root -n argocd
-# NAME             SYNC STATUS   HEALTH STATUS
-# blogstack-root   Unknown       Unknown
-
-kubectl describe application blogstack-root -n argocd
-# Message: Application referencing project blog which does not exist
-```
-
-**원인**: AppProject가 생성되지 않음
-
-**해결:**
 ```bash
 kubectl apply -f ./clusters/prod/project.yaml
 kubectl delete application blogstack-root -n argocd
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
-### 2. "do not match any of the allowed destinations"
+### "do not match any of the allowed destinations"
 
-**증상:**
+원인: AppProject의 destinations에 argocd 네임스페이스 없음
+
 ```bash
-kubectl describe application blogstack-root -n argocd
-# Message: application destination server '...' and namespace 'argocd' 
-#          do not match any of the allowed destinations in project 'blog'
-```
-
-**원인**: AppProject의 destinations에 `argocd` 네임스페이스 없음
-
-**해결:**
-```bash
-# clusters/prod/project.yaml 확인
 kubectl get appproject blog -n argocd -o yaml | grep -A 15 "destinations:"
 
-# argocd 네임스페이스가 없으면 추가 필요
-# 파일 수정 후:
+# argocd 없으면 파일 수정 후
 kubectl apply -f ./clusters/prod/project.yaml
 kubectl delete application blogstack-root -n argocd
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
-### 3. "must specify --enable-helm"
+### "must specify --enable-helm"
 
-**증상:**
-```bash
-kubectl get application observers -n argocd
-# NAME        SYNC STATUS   HEALTH STATUS
-# observers   Unknown       Healthy
-
-kubectl describe application observers -n argocd
-# Message: must specify --enable-helm
-```
-
-**원인**: Kustomize Helm 지원 미설정
-
-**해결:**
 ```bash
 kubectl patch configmap argocd-cm -n argocd --type merge \
   -p '{"data":{"kustomize.buildOptions":"--enable-helm --load-restrictor LoadRestrictionsNone"}}'
@@ -323,52 +224,12 @@ kubectl patch application observers -n argocd \
   --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
 ```
 
-### 4. "is not in or below" (Load Restriction)
-
-**증상:**
-```bash
-kubectl describe application observers -n argocd
-# Message: file 'config/prod.env' is not in or below 'apps/observers/overlays/prod'
-```
-
-**원인**: Kustomize가 상위 디렉터리 파일 참조 차단
-
-**해결:** 위의 3번 해결 방법과 동일 (`--load-restrictor LoadRestrictionsNone` 추가)
-
-### 5. Argo CD Pod Pending
+### Git URL "your-org"
 
 ```bash
-kubectl describe pod -n argocd <pod-name>
-
-# Events 확인:
-# - Insufficient cpu/memory → VM 리소스 부족
-# - Failed to pull image → 네트워크 문제
-```
-
-### 6. Root App OutOfSync
-
-```bash
-# 자동 동기화 대기 (3분) 또는 수동 동기화
-kubectl patch application blogstack-root -n argocd \
-  --type merge -p '{"operation":{"sync":{}}}'
-```
-
-### 7. Git URL이 "your-org"로 되어 있음
-
-```bash
-# 1. Root App 삭제
 kubectl delete application blogstack-root -n argocd
 
-# 2. 모든 Git URL 확인
 cd ~/blogstack-k8s
-grep -r "your-org/blogstack-k8s" iac/ clusters/prod/
-
-# 3. Git URL 변경 (CUSTOMIZATION.md 참조)
-# 3개 파일 변경:
-# - iac/argocd/root-app.yaml
-# - clusters/prod/apps.yaml (6곳)
-# - clusters/prod/project.yaml (1곳)
-
 OLD_URL="https://github.com/your-org/blogstack-k8s"
 NEW_URL="https://github.com/<본인계정>/blogstack-k8s"
 
@@ -376,129 +237,55 @@ sed -i "s|$OLD_URL|$NEW_URL|g" iac/argocd/root-app.yaml
 sed -i "s|$OLD_URL|$NEW_URL|g" clusters/prod/apps.yaml
 sed -i "s|$OLD_URL|$NEW_URL|g" clusters/prod/project.yaml
 
-# 4. 확인
-grep -r "your-org" iac/ clusters/prod/
-# 출력 없으면 OK
-
-# 5. Git commit & push
 git add iac/ clusters/
-git commit -m "Fix: Update Git URL to personal repository"
+git commit -m "Fix: Update Git URL"
 git push origin main
 
-# 6. VM에서 pull
 git pull origin main
-
-# 7. Root App 재배포
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
-### 4. Helm Chart 다운로드 실패
+### Helm Chart 다운로드 실패
 
 ```bash
-# 네트워크 확인
 curl -I https://prometheus-community.github.io/helm-charts
-
-# OCI Security List: Egress 0.0.0.0/0, TCP/443 허용 필요
-
-# DNS 확인
-nslookup prometheus-community.github.io
+# OCI Security List: Egress 0.0.0.0/0:443 필요
 ```
 
-### 5. ImagePullBackOff
+### ImagePullBackOff
 
 ```bash
-# 네트워크 확인
 curl -I https://registry.hub.docker.com
-
-# 잠시 후 자동 재시도 대기
+# 잠시 후 자동 재시도
 ```
-
----
 
 ## Argo CD UI 접근 (선택)
-
-### Port-forward 설정
 
 VM:
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443 &
 ```
 
-로컬 PC:
+로컬:
 ```bash
 ssh -L 8080:localhost:8080 -i ~/.ssh/oci_key ubuntu@<VM_IP>
 ```
 
 브라우저: `https://localhost:8080`
 - Username: `admin`
-- Password: `cat ~/argocd-password.txt`
-
----
+- Password: (4번에서 확인한 비밀번호)
 
 ## 다음 단계
 
 Argo CD 설치 완료
 
 현재 상태:
-- ✅ Argo CD 설치 완료
-- ✅ 모든 Application 배포 (Synced)
-- ✅ VSO 리소스 생성 완료 (VaultAuth, VaultStaticSecret)
-- ⏳ Vault Pod Running (0/1 - 미초기화 상태)
-- ⏳ cloudflared, ghost Pod이 시크릿 대기 중 (CreateContainerConfigError)
+- Argo CD 설치 완료
+- 모든 Application 배포 (Synced)
+- VSO 리소스 생성 완료
+- Vault Pod Running (0/1 - 미초기화)
+- cloudflared, ghost Pod이 시크릿 대기 중
 
-**다음 필수 단계**: Vault를 초기화하고 시크릿을 입력해야 모든 Pod이 정상 작동합니다.
+다음 필수 단계: Vault 초기화 및 시크릿 입력
 
-다음: [03-vault-setup.md](./03-vault-setup.md) - Vault 초기화 및 시크릿 입력 (20분)
-
----
-
-## 부록: 빠른 설치 스크립트
-
-재설치 또는 테스트 환경 구축 시 사용:
-
-```bash
-cd ~/blogstack-k8s
-
-# Git URL 확인 (중요)
-grep -r "your-org" iac/ clusters/prod/
-# 출력 없어야 함
-
-# 스크립트 실행
-chmod +x ./scripts/bootstrap.sh
-./scripts/bootstrap.sh
-```
-
-주의: 처음 설치 시 수동 설치 권장 (학습, 디버깅 용이)
-
----
-
-## Applications 재시작
-
-에러가 발생하거나 처음부터 다시 시작하고 싶을 때:
-
-```bash
-# Root App 삭제
-kubectl delete application blogstack-root -n argocd
-
-# 최신 코드 가져오기
-git pull origin main
-
-# 재배포
-kubectl apply -f iac/argocd/root-app.yaml
-```
-
-또는 자동 스크립트:
-```bash
-./scripts/quick-reset.sh
-```
-
-**상세 가이드**: [RESET.md](./RESET.md)
-
----
-
-## 참고
-
-- [Argo CD 공식 문서](https://argo-cd.readthedocs.io/)
-- [App of Apps Pattern](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/)
-- [Sync Waves](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/)
-- [전체 재시작 가이드](./RESET.md)
+→ [03-vault-setup.md](./03-vault-setup.md) - Vault 초기화 및 시크릿 입력
