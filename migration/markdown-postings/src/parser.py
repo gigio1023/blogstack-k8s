@@ -50,6 +50,7 @@ class HugoPostParser:
         
         Tries to get slug from frontmatter 'slug' field first,
         then from 'url' field, finally falls back to filename.
+        Handles empty slugs from trailing slashes in URLs.
         
         Returns:
             Post slug for URL
@@ -61,7 +62,10 @@ class HugoPostParser:
         # Try to extract slug from url field
         url: str | None = self.metadata.get("url")
         if url:
-            return url.strip("/").split("/")[-1]
+            slug_from_url: str = url.strip("/").split("/")[-1]
+            if slug_from_url:
+                return slug_from_url
+            # Fallback to filename if slug is empty (e.g., URL ends with /)
         
         # Fallback to filename
         return self.file_path.stem
@@ -181,7 +185,11 @@ class HugoPostParser:
         Detects images in multiple formats:
         - Markdown syntax: ![alt](path)
         - HTML img tags: <img src="path">
-        - Hugo figure shortcode: {{< figure src="path" >}}
+        - Hugo figure shortcode: {{< figure src="path" >}} or {{% figure src="path" %}}
+        
+        Note: Hugo figure shortcodes are detected here for image copying,
+        but are NOT automatically converted to Ghost-compatible format.
+        Manual conversion may be needed if Jekyll/Hugo-specific shortcodes exist.
         
         Filters out external URLs (http/https).
         
@@ -198,8 +206,9 @@ class HugoPostParser:
         html_images: list[str] = re.findall(r'<img[^>]+src=["\'](.*?)["\']', self.content)
         images.extend(html_images)
         
-        # Hugo figure shortcode: {{< figure src="path" >}}
-        figure_images: list[str] = re.findall(r'\{\{<\s*figure\s+src=["\'](.*?)["\']\s*.*?>\}\}', self.content)
+        # Hugo figure shortcode: {{< figure src="path" >}} or {{% figure src="path" %}}
+        # Support both < and % delimiters for shortcode syntax
+        figure_images: list[str] = re.findall(r'\{\{[<%]\s*figure\s+src=["\'](.*?)["\']\s*.*?[>%]\}\}', self.content)
         images.extend(figure_images)
         
         # Filter out external URLs
