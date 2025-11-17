@@ -189,7 +189,7 @@ class HugoPostParser:
         
         Note: Hugo figure shortcodes are detected here for image copying,
         but are NOT automatically converted to Ghost-compatible format.
-        Manual conversion may be needed if Jekyll/Hugo-specific shortcodes exist.
+        Manual conversion may be needed if Hugo-specific shortcodes exist.
         
         Filters out external URLs (http/https).
         

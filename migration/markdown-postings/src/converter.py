@@ -76,7 +76,7 @@ class MobiledocConverter:
         - HTML img tag with single quotes: <img src='path'>
         
         Note: Hugo figure shortcodes ({{< figure src="path" >}}) are NOT
-        automatically converted. If Jekyll/Hugo-specific shortcodes exist,
+        automatically converted. If Hugo-specific shortcodes exist,
         they need manual conversion to standard markdown or HTML format
         that Ghost can render (e.g., <figure><img><figcaption>).
         
