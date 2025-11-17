@@ -59,7 +59,7 @@ class MobiledocConverter:
             "sections": [[10, 0]]  # Section type 10 = card, index 0
         }
         
-        return json.dumps(mobiledoc)
+        return json.dumps(mobiledoc, ensure_ascii=False)
 
     @staticmethod
     def convert_image_paths(content: str, path_mapping: dict[str, str]) -> str:

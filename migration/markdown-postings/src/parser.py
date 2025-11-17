@@ -31,7 +31,9 @@ class HugoPostParser:
             file_path: Path to the Hugo markdown file
         """
         self.file_path: Path = file_path
-        self.post: frontmatter.Post = frontmatter.load(file_path)
+        # Explicitly use UTF-8 encoding for multilingual content support
+        with open(file_path, "r", encoding="utf-8") as f:
+            self.post: frontmatter.Post = frontmatter.load(f)
         self.metadata: dict[str, Any] = dict(self.post.metadata)
         self.content: str = self.post.content
 
