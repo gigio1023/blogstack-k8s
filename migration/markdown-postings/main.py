@@ -160,8 +160,8 @@ def cli(
             logger.debug(f"Converted: {md_file.name}")
             
         except Exception as e:
-            # Log errors but continue processing other files
-            logger.error(f"Failed: {md_file.name} - {e}")
+            # Log errors with full traceback but continue processing other files
+            logger.exception(f"Failed: {md_file.name} - {e}")
             error_count += 1
     
     # Report conversion statistics
