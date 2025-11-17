@@ -7,6 +7,7 @@ relationships in a structure that Ghost can import directly.
 """
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -100,29 +101,40 @@ class GhostExporter:
         """
         Add a tag to the collection (deduplicates automatically)
         
+        Generates a slug by converting to lowercase, replacing non-alphanumeric
+        characters with hyphens, and removing leading/trailing hyphens.
+        
         Args:
             tag_name: Name of the tag
         """
         if tag_name not in self.tags:
             tag_id: str = f"tag-{len(self.tags) + 1}"
+            # Generate slug: remove special chars, handle multiple spaces/dashes
+            tag_slug: str = re.sub(r'[^a-z0-9]+', '-', tag_name.lower()).strip('-')
             self.tags[tag_name] = {
                 "id": tag_id,
                 "name": tag_name,
-                "slug": tag_name.lower().replace(" ", "-"),
+                "slug": tag_slug,
             }
 
     def _link_post_tag(self, post_id: str, tag_name: str) -> None:
         """
-        Create post-tag relationship
+        Create post-tag relationship with sort order
+        
+        The sort_order field maintains the tag display order for each post.
+        Tags are displayed in ascending order (0, 1, 2, ...).
         
         Args:
             post_id: ID of the post
             tag_name: Name of the tag
         """
         tag_obj: dict[str, Any] = self.tags[tag_name]
+        # Calculate sort order: count existing tags for this post
+        sort_order: int = len([pt for pt in self.posts_tags if pt["post_id"] == post_id])
         self.posts_tags.append({
             "post_id": post_id,
             "tag_id": tag_obj["id"],
+            "sort_order": sort_order,
         })
 
     def generate_json(self) -> dict[str, Any]:
