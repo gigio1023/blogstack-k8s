@@ -21,6 +21,8 @@ helmCharts:
         prometheusSpec:
           serviceMonitorSelectorNilUsesHelmValues: false
           probeSelectorNilUsesHelmValues: false
+          serviceMonitorSelector: {}
+          serviceMonitorNamespaceSelector: {}
   - name: prometheus-blackbox-exporter
     repo: https://prometheus-community.github.io/helm-charts
     version: 8.1.0
