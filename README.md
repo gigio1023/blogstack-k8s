@@ -90,6 +90,7 @@ Follow the documentation in order:
 | 7 | [07-smtp-setup.md](./docs/en/07-smtp-setup.md) | Configure email (required) |
 | 8 | [08-operations.md](./docs/en/08-operations.md) | Day-2 operations |
 | 9 | [09-troubleshooting.md](./docs/en/09-troubleshooting.md) | Common issues |
+| 10 | [10-monitoring.md](./docs/en/10-monitoring.md) | Monitoring Setup |
 
 
 ## Repository Structure
