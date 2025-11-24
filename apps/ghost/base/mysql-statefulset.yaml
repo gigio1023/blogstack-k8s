@@ -64,6 +64,13 @@ spec:
           ports:
             - name: metrics
               containerPort: 9104
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
           env:
             - name: MYSQL_USER
               valueFrom:
