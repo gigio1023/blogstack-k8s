@@ -2,6 +2,9 @@
 
 Unified monitoring infrastructure based on Prometheus, Grafana, and Loki.
 
+> [!WARNING]
+> Deploy the `observers` ArgoCD application with `ServerSideApply=true` to avoid missing kube-prometheus-stack CRDs. If CRDs are absent, all ServiceMonitor/Probe resources will fail.
+
 ## Overview
 
 - **Metrics**: Prometheus (Pull-based)
@@ -33,17 +36,16 @@ kubectl get application observers -n argocd
 
 ### 2. Verify Prometheus Operator CRDs
 
-Check for the CRDs created during the Prometheus Operator installation.
+Check the CRDs created during Prometheus Operator installation.
 
 ```bash
-# Check Prometheus CRD
-kubectl get crd prometheuses.monitoring.coreos.com
-
-# Check ServiceMonitor CRD
-kubectl get crd servicemonitors.monitoring.coreos.com
-
-# Check Probe CRD (for Blackbox Exporter)
-kubectl get crd probes.monitoring.coreos.com
+kubectl get crd \
+  servicemonitors.monitoring.coreos.com \
+  prometheusrules.monitoring.coreos.com \
+  prometheuses.monitoring.coreos.com \
+  alertmanagers.monitoring.coreos.com \
+  podmonitors.monitoring.coreos.com \
+  probes.monitoring.coreos.com
 ```
 
 If CRDs are missing, ArgoCD has not yet deployed `observers` or the deployment failed.
