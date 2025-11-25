@@ -1,193 +1,373 @@
 # Customization
 
-Customize blogstack-k8s for your blog
+Customize blogstack-k8s for your own blog.
 
 ## Quick Start
 
-Minimal changes to deploy after fork (run on VM)
+Minimal changes required to deploy after forking (run on VM).
 
 ### Prerequisites
 
 - 00-prerequisites.md completed
 - VM SSH access
-- Ready: domain, Git repo URL
+- Prepared: Domain, Git Repository URL
 
-### 1. Clone Repo (On VM)
+### Step 1: Clone Repository (On VM)
 
 ```bash
-# SSH to VM
+# SSH into VM
 ssh -i ~/.ssh/oci_key ubuntu@<VM_PUBLIC_IP>
 
-# Go to work directory
+# Go to home directory
 cd ~
 
-# Clone your fork
+# Clone repository (Your forked repository)
 git clone https://github.com/YOUR_GITHUB_USERNAME/blogstack-k8s.git
 cd blogstack-k8s
 
 # Verify location
 pwd
-# Expected: /home/ubuntu/blogstack-k8s
+# Expected output: /home/ubuntu/blogstack-k8s
 ```
 
-Note: Clone your fork, not the original
+Note: Clone your own forked repository, not the original one.
 
-### 2. Bulk Update Git URLs
+---
+
+### Step 2: Bulk Update Git URLs
 
 ```bash
 # Check current URL
 grep "repoURL" iac/argocd/root-app.yaml
 
-# Set variables
+# Set variables (Change to actual values)
 OLD_URL="https://github.com/your-org/blogstack-k8s"
 NEW_URL="https://github.com/YOUR_GITHUB_USERNAME/blogstack-k8s"
 
-# Update all files
-sed -i "s|$OLD_URL|$NEW_URL|g" iac/argocd/root-app.yaml
-sed -i "s|$OLD_URL|$NEW_URL|g" clusters/prod/apps.yaml
-sed -i "s|$OLD_URL|$NEW_URL|g" clusters/prod/project.yaml
+# Bulk update (Linux - on VM)
+sed -i "s|$OLD_URL|$NEW_URL|g" \
+  iac/argocd/root-app.yaml \
+  clusters/prod/apps.yaml \
+  clusters/prod/project.yaml
 
-# Verify
+# Verify change
 grep "repoURL" iac/argocd/root-app.yaml
-# Should show your GitHub username
+# Expected output: repoURL: https://github.com/YOUR_GITHUB_USERNAME/blogstack-k8s
 ```
 
-### 3. Update Domain
-
+Real example:
 ```bash
-# Check current domain
-grep "siteUrl" config/prod.env
+# Example: If GitHub username is "johndoe"
+OLD_URL="https://github.com/your-org/blogstack-k8s"
+NEW_URL="https://github.com/johndoe/blogstack-k8s"
 
-# Update to your domain
-sed -i 's|siteUrl=.*|siteUrl=https://yourdomain.com|' config/prod.env
-
-# Verify
-grep "siteUrl" config/prod.env
+sed -i "s|$OLD_URL|$NEW_URL|g" \
+  iac/argocd/root-app.yaml \
+  clusters/prod/apps.yaml \
+  clusters/prod/project.yaml
 ```
 
-### 4. Set Git Identity
+---
+
+### Step 3: Update Domain
 
 ```bash
-git config user.name "Your Name"
-git config user.email "your-email@example.com"
+# Edit config/prod.env file
+vi config/prod.env
 ```
 
-### 5. Commit & Push
+Before change:
+```env
+domain=yourdomain.com
+siteUrl=https://yourdomain.com
+email=admin@yourdomain.com
+timezone=Asia/Seoul
+```
+
+After change (Real example):
+```env
+domain=myblog.com
+siteUrl=https://myblog.com
+email=admin@myblog.com
+timezone=Asia/Seoul
+```
+
+Save and exit: `ESC` → `:wq`
+
+Verify change:
+```bash
+cat config/prod.env | grep -E "^domain=|^siteUrl=|^email="
+
+# Expected output:
+# domain=myblog.com
+# siteUrl=https://myblog.com
+# email=admin@myblog.com
+```
+
+---
+
+### Step 4: Commit & Push
 
 ```bash
-git add iac/ clusters/ config/
-git commit -m "chore: customize URLs and domain"
+# Git Config (First time only)
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+
+# Check changes
+git status
+
+# Expected output:
+# modified:   iac/argocd/root-app.yaml
+# modified:   clusters/prod/apps.yaml
+# modified:   clusters/prod/project.yaml
+# modified:   config/prod.env
+
+# Stage changes
+git add iac/argocd/root-app.yaml \
+        clusters/prod/apps.yaml \
+        clusters/prod/project.yaml \
+        config/prod.env
+
+# Commit
+git commit -m "Customize: Update Git URL and domain to myblog.com"
+
+# Push (GitHub authentication required)
 git push origin main
 ```
 
-Done. Proceed to 01-infrastructure.md
+GitHub Authentication Method:
+```bash
+# Use Personal Access Token (Recommended)
+# GitHub → Settings → Developer settings → Personal access tokens → Generate new token
+# Scopes: repo (all)
 
-## Advanced Customization
-
-### Change Namespace Names
-
-Edit `apps/*/overlays/prod/kustomization.yaml`:
-
-```yaml
-namespace: my-blog  # Change from 'blog'
+# Username when pushing: YOUR_GITHUB_USERNAME
+# Password: (The generated Personal Access Token)
 ```
 
-Update all references in:
-- `clusters/prod/project.yaml`
-- VSO resources
-- NetworkPolicies
+---
 
-### Change Resource Limits
+### Step 5: Verify External Services Readiness
 
-Edit `apps/*/base/kustomization.yaml` or overlays:
-
-```yaml
-patches:
-  - patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 1Gi
-    target:
-      kind: Deployment
-      name: ghost
-```
-
-### Multiple Environments
-
-Copy prod to dev:
+Double-check that **all of the following** are ready:
 
 ```bash
-cp -r apps/ghost/overlays/prod apps/ghost/overlays/dev
+# Checklist (Copy and paste in terminal)
+cat << 'EOF'
+External Services Readiness Check:
+□ Cloudflare Tunnel Token copied
+□ MySQL passwords (2) generated (Root, Ghost)
+
+Optional (If needed):
+□ OCI S3 Access Key/Secret Key copied (If backup enabled)
+□ SMTP credentials copied (If email sending enabled)
+EOF
 ```
 
-Edit `apps/ghost/overlays/dev/kustomization.yaml`:
+---
 
-```yaml
-namespace: blog-dev
+### Completion
 
-configMapGenerator:
-  - name: blog-env
-    envs:
-      - ../../../../config/dev.env
+Now proceed to the next step:
+
+→ [01-infrastructure.md](./01-infrastructure.md) - Install k3s (5 min)
+
+---
+
+## Design Principles
+
+**Centralized Configuration**: All personalization settings are managed in one place: `config/prod.env`. No domains or personal information are hardcoded in Kubernetes resources.
+
+**Reusable Infrastructure**: The code in this repository is designed so anyone can fork it and modify only `config/prod.env` to use it immediately.
+
+## Step 1: Modify config/prod.env
+
+Open the `config/prod.env` file at the root of the repository and modify the following values:
+
+```env
+# Basic Settings
+domain=yourdomain.com                    # Change to actual domain
+siteUrl=https://yourdomain.com           # Match the domain
+email=admin@yourdomain.com               # Admin email
+timezone=Asia/Seoul                      # Timezone (Changeable)
+alertEmail=admin@yourdomain.com          # Alert recipient email
+
+# Monitoring URLs (Auto-adjusted if domain is changed)
+monitorUrlHome=https://yourdomain.com/
+monitorUrlSitemap=https://yourdomain.com/sitemap.xml
+monitorUrlGhost=https://yourdomain.com/ghost/
 ```
 
-Create dev App:
+### Important: You only need to modify this file!
+
+- ✅ **Modify this file**: `config/prod.env`
+- ❌ **Do not need to modify**:
+  - `apps/ghost/base/ingress.yaml` (Auto-injected)
+  - `apps/observers/base/probe.yaml` (Auto-injected)
+  - All other Kubernetes resources
+
+## Step 2: Change Git Repository URL
+
+### Root Application
+
+`iac/argocd/root-app.yaml`:
 
 ```yaml
-# clusters/dev/apps.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: ghost-dev
-  namespace: argocd
 spec:
   source:
-    path: apps/ghost/overlays/dev
-  destination:
-    namespace: blog-dev
+    repoURL: https://github.com/your-org/blogstack-k8s  # Change this
 ```
 
-### Use Different Ingress Class
+### Child Applications
 
-Edit `apps/ghost/base/ingress.yaml`:
+`clusters/prod/apps.yaml`:
 
 ```yaml
+# Change repoURL for all Applications
 spec:
-  ingressClassName: traefik  # Change from 'nginx'
+  source:
+    repoURL: https://github.com/your-org/blogstack-k8s  # Change this
 ```
 
-### Custom Ghost Image
+## Step 3: Prepare Vault Secrets
 
-Edit `apps/ghost/base/deployment.yaml`:
+Prepare the secrets to be entered by referring to `security/vault/secrets-guide.md`:
 
-```yaml
-spec:
-  template:
-    spec:
-      containers:
-        - name: ghost
-          image: your-registry/ghost:custom
+### Ghost Secret (`kv/blog/prod/ghost`)
+
+Basic configuration (without SMTP):
+```bash
+vault kv put kv/blog/prod/ghost \
+  url="https://yourdomain.com" \
+  database__client="mysql" \
+  database__connection__host="mysql.blog.svc.cluster.local" \
+  database__connection__user="ghost" \
+  database__connection__password="<your-secure-password>" \
+  database__connection__database="ghost"
 ```
 
-### Add Backup to Different Provider
-
-Edit `apps/ghost/optional/cronjob-backup.yaml`:
-
-Replace AWS_* env vars with your provider's API.
-
-## Don't Forget
-
-After changes:
+### MySQL Secret (`kv/blog/prod/mysql`)
 
 ```bash
-git add .
-git commit -m "chore: customize configuration"
-git push origin main
+vault kv put kv/blog/prod/mysql \
+  root_password="<mysql-root-password>" \
+  user="ghost" \
+  password="<same-as-ghost-db-password>"
 ```
 
-Argo CD auto-syncs in ~3 minutes, or manual sync:
+### Cloudflare Tunnel (`kv/blog/prod/cloudflared`)
 
 ```bash
-kubectl patch application <app-name> -n argocd \
-  -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+vault kv put kv/blog/prod/cloudflared \
+  token="<cloudflare-tunnel-token>"
 ```
+
+### Optional Features
+
+For SMTP email sending (required), see docs/07-smtp-setup.md. For automated backups, see apps/ghost/optional/README.md.
+
+## Verify Auto-Injection
+
+Verify that configurations are injected correctly:
+
+### 1. Ghost Ingress Host
+
+```bash
+kubectl get ingress -n blog ghost -o yaml | grep host
+# Output: host: yourdomain.com (domain value from config/prod.env)
+```
+
+### 2. Blackbox Probe Targets
+
+```bash
+kubectl get probe -n observers blog-external -o yaml | grep -A3 static:
+# Output: monitorUrl* values from config/prod.env
+```
+
+### 3. Ghost URL Environment Variable
+
+```bash
+kubectl get pods -n blog -l app=ghost -o jsonpath='{.items[0].spec.containers[0].env}' | jq
+# url: siteUrl from config/prod.env
+```
+
+## Multiple Environments (Optional)
+
+To add dev/staging environments:
+
+### 1. Copy Config File
+
+```bash
+cp config/prod.env config/dev.env
+vim config/dev.env  # Modify to dev domain
+```
+
+### 2. Create Overlay
+
+```bash
+mkdir -p apps/ghost/overlays/dev
+# Reference dev.env in kustomization.yaml
+```
+
+### 3. Create Cluster Directory
+
+```bash
+mkdir -p clusters/dev
+# Copy and modify apps.yaml, project.yaml
+```
+
+## Example Domain in Documentation
+
+`sunghogigio.com` in the documentation and guides is an **example**. When deploying for real:
+
+- ✅ Use values from `config/prod.env`
+- ✅ Enter actual domain in Vault secrets
+- ✅ Configure actual domain in Cloudflare
+
+## Verification Checklist
+
+Check before deployment:
+
+Required:
+- [ ] Enter actual domain/email in `config/prod.env`
+- [ ] Change repoURL in `iac/argocd/root-app.yaml`
+- [ ] Change all repoURLs in `clusters/prod/apps.yaml`
+- [ ] Prepare Vault secrets (including domain)
+- [ ] Create Cloudflare Tunnel and issue token
+
+Optional:
+- [ ] Create OCI Object Storage bucket and keys (If backup enabled)
+- [ ] Prepare SMTP credentials (If email sending enabled)
+
+## Troubleshooting
+
+### Wrong Domain in Ingress
+
+**Cause**: `config/prod.env` not updated or Argo CD not synced
+
+**Fix**:
+```bash
+# After modifying config/prod.env
+git add config/prod.env
+git commit -m "Update domain"
+git push
+
+# Manual Argo CD sync
+kubectl patch app ghost -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
+```
+
+### Blackbox Probe checks example.invalid
+
+**Cause**: observers app not yet synced
+
+**Fix**:
+```bash
+kubectl delete pod -n argocd -l app.kubernetes.io/name=argocd-repo-server
+# Auto-syncs when Argo CD restarts
+```
+
+## Additional Resources
+
+- [config/README.md](../config/README.md) - Config file details
+- [security/vault/secrets-guide.md](../security/vault/secrets-guide.md) - Vault secrets guide
+- [docs/03-vault-setup.md](./03-vault-setup.md) - Vault initialization method
