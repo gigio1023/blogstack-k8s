@@ -60,6 +60,10 @@ kustomization.output.yaml
 # Helm
 .helm/
 charts/*.tgz
+apps/ingress-nginx/base/charts/
+apps/observers/base/charts/
+security/vault/charts/
+security/vso-operator/charts/
 *.lock
 
 # Script execution results
@@ -111,4 +115,3 @@ yarn-error.log*
 # Miscellaneous
 *.orig
 .cache/
-
