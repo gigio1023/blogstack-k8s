@@ -39,25 +39,7 @@ vault kv put kv/blog/prod/mysql \
   database="ghost"
 ```
 
-### 3. MySQL Exporter (`kv/blog/prod/mysql-exporter`)
-
-메트릭 수집 전용 계정/자격증명:
-
-```bash
-vault kv put kv/blog/prod/mysql-exporter \
-  user="mysql_exporter" \
-  password="<MYSQL_EXPORTER_PASSWORD>"
-```
-
-MySQL 내부 권한(데이터베이스 접속 후 실행):
-
-```sql
-CREATE USER 'mysql_exporter'@'%' IDENTIFIED BY '<MYSQL_EXPORTER_PASSWORD>';
-GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'mysql_exporter'@'%';
-GRANT SELECT ON performance_schema.* TO 'mysql_exporter'@'%';
-```
-
-### 4. Cloudflare Tunnel (`kv/blog/prod/cloudflared`)
+### 3. Cloudflare Tunnel (`kv/blog/prod/cloudflared`)
 
 Cloudflare Tunnel 토큰:
 
@@ -135,8 +117,8 @@ kubectl get secrets -n cloudflared
 예상 Secret (기본 구성):
 - `ghost-env` (namespace: blog)
 - `mysql-secret` (namespace: blog)
-- `mysql-exporter-secret` (namespace: blog)
 - `cloudflared-token` (namespace: cloudflared)
 
 선택 (백업 활성화 시):
 - `backup-s3` (namespace: blog)
+
