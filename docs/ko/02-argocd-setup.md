@@ -152,6 +152,30 @@ kubectl get applications -n argocd
 
 Degraded/Progressing: Vault 미초기화 및 시크릿 미입력 (다음 단계에서 해결)
 
+### 모니터링 스택 배포 확인
+
+`observers` 애플리케이션이 정상 배포되었는지 확인합니다.
+
+```bash
+# Prometheus Operator CRD 설치 확인
+kubectl get crd | grep monitoring.coreos.com
+
+# 예상 출력:
+# prometheuses.monitoring.coreos.com
+# servicemonitors.monitoring.coreos.com
+# probes.monitoring.coreos.com
+# podmonitors.monitoring.coreos.com
+
+# Prometheus Pod 확인
+kubectl get pods -n observers -l app.kubernetes.io/name=prometheus
+
+# 예상 출력:
+# prometheus-kube-prometheus-stack-prometheus-0   2/2   Running
+```
+
+> [!NOTE]
+> 모니터링 스택은 이후 [10-monitoring.md](./10-monitoring.md)에서 ServiceMonitor 등을 구성할 때 필요합니다.
+
 Pod 상태:
 ```bash
 kubectl get pods -A | grep -E "NAMESPACE|blog|vault|cloudflared"

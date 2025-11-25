@@ -13,6 +13,64 @@ Prometheus, Grafana, Loki 기반의 통합 모니터링 인프라 구축
   - MySQL Exporter: DB 성능 지표 (Sidecar)
   - Ingress NGINX: 웹 트래픽 및 에러율
 
+## 전제 조건
+
+모니터링 구성을 시작하기 전에 다음 조건이 충족되어야 합니다.
+
+### 1. ArgoCD를 통한 모니터링 스택 배포 확인
+
+`observers` 애플리케이션이 정상적으로 배포되어야 Prometheus, Grafana, Loki가 설치됩니다.
+
+```bash
+# ArgoCD Application 상태 확인
+kubectl get application observers -n argocd
+
+# 예상 출력: observers   Synced   Healthy
+```
+
+> [!WARNING]
+> `observers` 애플리케이션이 없거나 `Degraded` 상태라면 먼저 [02-argocd-setup.md](./02-argocd-setup.md)를 완료하세요.
+
+### 2. Prometheus Operator CRD 설치 확인
+
+Prometheus Operator가 설치되면서 함께 생성되는 CRD들을 확인합니다.
+
+```bash
+# Prometheus CRD 확인
+kubectl get crd prometheuses.monitoring.coreos.com
+
+# ServiceMonitor CRD 확인
+kubectl get crd servicemonitors.monitoring.coreos.com
+
+# Probe CRD 확인 (Blackbox Exporter용)
+kubectl get crd probes.monitoring.coreos.com
+```
+
+CRD가 없다면 ArgoCD가 아직 `observers`를 배포하지 않았거나 배포에 실패한 것입니다.
+
+### 3. 모니터링 Pod 상태 확인
+
+```bash
+# Prometheus, Grafana, Loki Pod 확인
+kubectl get pods -n observers
+
+# 예상 출력:
+# prometheus-kube-prometheus-stack-prometheus-0   2/2   Running
+# kube-prometheus-stack-grafana-xxx               3/3   Running
+# kube-prometheus-stack-operator-xxx              1/1   Running
+# loki-0                                          1/1   Running
+# promtail-xxx                                    1/1   Running
+```
+
+### 검증 스크립트 (선택)
+
+전제 조건을 자동으로 검증하려면:
+
+```bash
+# 프로젝트 루트에서 실행
+bash scripts/check-monitoring-prerequisites.sh
+```
+
 ## 구성 단계
 
 ### 1. 모니터링 스택 확인
