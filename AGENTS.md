@@ -30,6 +30,7 @@
 
 ## Commit & Pull Request Guidelines
 - Commit messages follow Conventional Commit style seen in history (`feat(scope): ...`, `fix: ...`, `docs: ...`).
+- Commit bodies are mandatory: include what changed, why it was needed, and how it was validated (or why not). Call out follow-ups/operational steps (e.g., new Vault secrets, DNS, manual migrations).
 - PRs should include: what changed, why, validation results (`make validate` output), and any operational notes (e.g., new Vault secrets or DNS entries).
 - Link related docs you updated; attach screenshots/logs only when clarifying behavior (Ingress, Cloudflare, or Vault changes).
 - Keep PRs focused: one feature/fix per PR; avoid bundling unrelated manifest and doc changes.
