@@ -30,6 +30,24 @@ Key settings:
 
 Add a sidecar container and ServiceMonitor to collect Ghost database metrics.
 
+#### Prepare Exporter Credentials
+
+Create a dedicated MySQL user with minimal privileges and store it in Vault for VSO sync.
+
+- Vault path: `kv/blog/prod/mysql-exporter`
+- Kubernetes Secret: `mysql-exporter-secret` (synced by VSO)
+- Required grants:
+
+```sql
+CREATE USER 'mysql_exporter'@'%' IDENTIFIED BY '<STRONG_PASSWORD>';
+GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'mysql_exporter'@'%';
+GRANT SELECT ON performance_schema.* TO 'mysql_exporter'@'%';
+```
+
+Related files:
+- [security/vault/policies/mysql.hcl](../../security/vault/policies/mysql.hcl)
+- [security/vso-resources/secrets/mysql-exporter.yaml](../../security/vso-resources/secrets/mysql-exporter.yaml)
+
 #### Add Exporter Sidecar
 
 Add the `prom/mysqld-exporter` container to the `mysql` StatefulSet.

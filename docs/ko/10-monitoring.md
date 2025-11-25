@@ -30,6 +30,24 @@ Prometheus, Grafana, Loki 기반의 통합 모니터링 인프라 구축
 
 Ghost 데이터베이스 메트릭 수집을 위해 사이드카 컨테이너와 ServiceMonitor를 추가합니다.
 
+#### Exporter 자격증명 준비
+
+모니터링 전용 MySQL 사용자를 최소 권한으로 만들고 Vault에 저장해 VSO로 동기화합니다.
+
+- Vault 경로: `kv/blog/prod/mysql-exporter`
+- Kubernetes Secret: `mysql-exporter-secret` (VSO 동기화)
+- 필요한 권한:
+
+```sql
+CREATE USER 'mysql_exporter'@'%' IDENTIFIED BY '<STRONG_PASSWORD>';
+GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'mysql_exporter'@'%';
+GRANT SELECT ON performance_schema.* TO 'mysql_exporter'@'%';
+```
+
+관련 파일:
+- [security/vault/policies/mysql.hcl](../../security/vault/policies/mysql.hcl)
+- [security/vso-resources/secrets/mysql-exporter.yaml](../../security/vso-resources/secrets/mysql-exporter.yaml)
+
 #### Exporter 사이드카 추가
 
 `mysql` StatefulSet에 `prom/mysqld-exporter` 컨테이너를 추가합니다.
