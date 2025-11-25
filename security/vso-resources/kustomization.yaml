@@ -10,6 +10,6 @@ resources:
   - auth/cloudflared-vault-auth.yaml
   - secrets/ghost.yaml
   - secrets/mysql.yaml
-  - secrets/mysql-exporter.yaml
   - secrets/cloudflared.yaml
   # backup.yaml is optional and should be applied manually from secrets/optional/
+

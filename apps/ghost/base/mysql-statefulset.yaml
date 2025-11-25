@@ -72,18 +72,18 @@ spec:
               cpu: 200m
               memory: 128Mi
           env:
-            - name: MYSQL_EXPORTER_USER
+            - name: MYSQL_USER
               valueFrom:
                 secretKeyRef:
-                  name: mysql-exporter-secret
+                  name: mysql-secret
                   key: user
-            - name: MYSQL_EXPORTER_PASSWORD
+            - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-exporter-secret
+                  name: mysql-secret
                   key: password
             - name: DATA_SOURCE_NAME
-              value: "$(MYSQL_EXPORTER_USER):$(MYSQL_EXPORTER_PASSWORD)@(localhost:3306)/"
+              value: "$(MYSQL_USER):$(MYSQL_PASSWORD)@(localhost:3306)/"
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -92,3 +92,4 @@ spec:
         resources:
           requests:
             storage: 10Gi
+
