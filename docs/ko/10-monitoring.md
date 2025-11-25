@@ -2,6 +2,9 @@
 
 Prometheus, Grafana, Loki 기반의 통합 모니터링 인프라 구축
 
+> [!WARNING]
+> `observers` 애플리케이션은 ArgoCD `ServerSideApply=true` 옵션으로 배포해야 kube-prometheus-stack CRD가 누락되지 않습니다. CRD가 설치되지 않으면 모든 ServiceMonitor/Probe 리소스가 실패합니다.
+
 ## 개요
 
 - **메트릭**: Prometheus (Pull 방식)
@@ -33,17 +36,16 @@ kubectl get application observers -n argocd
 
 ### 2. Prometheus Operator CRD 설치 확인
 
-Prometheus Operator가 설치되면서 함께 생성되는 CRD들을 확인합니다.
+Prometheus Operator가 설치되면서 함께 생성되는 CRD들을 한 번에 확인합니다.
 
 ```bash
-# Prometheus CRD 확인
-kubectl get crd prometheuses.monitoring.coreos.com
-
-# ServiceMonitor CRD 확인
-kubectl get crd servicemonitors.monitoring.coreos.com
-
-# Probe CRD 확인 (Blackbox Exporter용)
-kubectl get crd probes.monitoring.coreos.com
+kubectl get crd \
+  servicemonitors.monitoring.coreos.com \
+  prometheusrules.monitoring.coreos.com \
+  prometheuses.monitoring.coreos.com \
+  alertmanagers.monitoring.coreos.com \
+  podmonitors.monitoring.coreos.com \
+  probes.monitoring.coreos.com
 ```
 
 CRD가 없다면 ArgoCD가 아직 `observers`를 배포하지 않았거나 배포에 실패한 것입니다.
@@ -139,6 +141,8 @@ kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.
 kubectl get servicemonitor -n ingress-nginx ingress-nginx-controller
 ```
 
+> Helm 값(`controller.metrics.serviceMonitor.enabled: true`)으로 ServiceMonitor가 생성되므로 오버레이에 별도 ServiceMonitor 매니페스트를 추가하지 않습니다.
+
 #### Blackbox Probing
 
 외부 URL 헬스 체크를 위한 Probe 리소스를 확인합니다.
@@ -227,4 +231,3 @@ Grafana Explore 탭에서 로그가 검색되는지 확인합니다.
 
 1. 시간 범위 확인: 우측 상단 Time Range가 최근 시간인지 확인
 2. Prometheus 데이터 소스 연결 확인: Configuration → Data Sources → Prometheus → 'Save & Test'
-

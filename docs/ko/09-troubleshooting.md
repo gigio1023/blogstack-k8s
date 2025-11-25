@@ -150,6 +150,37 @@ kubectl delete application blogstack-root -n argocd
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
+## 모니터링/CRD
+
+### Prometheus Operator/Grafana CRD 미설치로 ServiceMonitor/Probe 실패
+
+```bash
+kubectl get crd \
+  servicemonitors.monitoring.coreos.com \
+  prometheusrules.monitoring.coreos.com \
+  prometheuses.monitoring.coreos.com \
+  alertmanagers.monitoring.coreos.com \
+  podmonitors.monitoring.coreos.com \
+  probes.monitoring.coreos.com
+# NotFound가 하나라도 있으면 CRD가 설치되지 않은 상태
+
+# observers 앱을 ServerSideApply 옵션으로 동기화
+kubectl patch application observers -n argocd \
+  -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
+  --type merge
+kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+```
+
+### ingress-nginx ServiceMonitor ID 충돌
+
+```bash
+# Helm 값에서 이미 ServiceMonitor를 생성하므로 오버레이 매니페스트를 제거해야 함
+# 증상: "namespace transformation produces ID conflict" 메시지
+
+# 해결: apps/ingress-nginx/overlays/prod/servicemonitor.yaml 제거
+#       kustomization.yaml 리소스 목록에서 servicemonitor.yaml 삭제
+```
+
 ## VSO
 
 ### Secret 생성 안됨

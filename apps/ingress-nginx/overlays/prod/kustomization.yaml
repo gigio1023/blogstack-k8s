@@ -5,7 +5,6 @@ namespace: ingress-nginx
 
 resources:
   - ../../base
-  - servicemonitor.yaml
   - pdb.yaml
   - namespace.yaml
 
@@ -16,4 +15,3 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
-
