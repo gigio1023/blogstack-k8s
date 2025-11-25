@@ -150,6 +150,37 @@ kubectl delete application blogstack-root -n argocd
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
+## Monitoring / CRD
+
+### ServiceMonitor/Probe failures due to missing Prometheus Operator/Grafana CRDs
+
+```bash
+kubectl get crd \
+  servicemonitors.monitoring.coreos.com \
+  prometheusrules.monitoring.coreos.com \
+  prometheuses.monitoring.coreos.com \
+  alertmanagers.monitoring.coreos.com \
+  podmonitors.monitoring.coreos.com \
+  probes.monitoring.coreos.com
+# If any NotFound appears, CRDs are missing.
+
+# Sync observers with ServerSideApply enabled
+kubectl patch application observers -n argocd \
+  -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
+  --type merge
+kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+```
+
+### ingress-nginx ServiceMonitor ID conflict
+
+```bash
+# Helm already creates the ServiceMonitor via values, so the overlay manifest must be removed.
+# Symptom: "namespace transformation produces ID conflict"
+
+# Fix: remove apps/ingress-nginx/overlays/prod/servicemonitor.yaml
+#      and drop it from the kustomization resources list
+```
+
 ## VSO
 
 ### Secrets Not Created

@@ -107,7 +107,7 @@ kubectl delete application blogstack-root -n argocd
 kubectl delete application blogstack-root -n argocd --grace-period=0 --force
 ```
 
-### 2. Child applications Not Created
+### 2. Child Applications Not Created
 
 **Symptom:**
 ```bash
