@@ -6,6 +6,7 @@ namespace: blog
 resources:
   - ../../base
   - networkpolicy.yaml
+  - networkpolicy-monitoring.yaml
   - hpa.yaml
   - namespace.yaml
 

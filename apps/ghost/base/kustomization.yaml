@@ -9,6 +9,8 @@ resources:
   - ingress.yaml
   - mysql-statefulset.yaml
   - mysql-service.yaml
+  - mysql-exporter-service.yaml
+  - mysql-servicemonitor.yaml
   - pvc-ghost-content.yaml
   - pdb.yaml
 
