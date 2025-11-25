@@ -39,8 +39,11 @@ echo ""
 # 2. Prometheus CRD 확인
 echo "2. Prometheus Operator CRD 확인..."
 REQUIRED_CRDS=(
-    "prometheuses.monitoring.coreos.com"
     "servicemonitors.monitoring.coreos.com"
+    "prometheusrules.monitoring.coreos.com"
+    "prometheuses.monitoring.coreos.com"
+    "alertmanagers.monitoring.coreos.com"
+    "podmonitors.monitoring.coreos.com"
     "probes.monitoring.coreos.com"
 )
 

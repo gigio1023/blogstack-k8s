@@ -1,11 +1,11 @@
 # 02. Argo CD Setup
 
-Install Argo CD and deploy App-of-Apps pattern
+Install Argo CD and deploy App-of-Apps pattern for GitOps.
 
 ## Overview
 
-- Argo CD: Git-based declarative deployment
-- Applications split into 8 for CRD dependency resolution
+- Argo CD: Git-based declarative deployment tool
+- Applications: Split into 8 parts for CRD dependency resolution
 - Expected time: 15 minutes
 
 ## Prerequisites
@@ -13,7 +13,7 @@ Install Argo CD and deploy App-of-Apps pattern
 - k3s installed (01-infrastructure.md)
 - VM SSH connected
 - Project directory: `~/blogstack-k8s`
-- Run all commands from project root
+- All commands should be run from the project root
 
 ### Verify Git URL Change (Required)
 
@@ -25,9 +25,9 @@ grep -r "your-org/blogstack-k8s" iac/ clusters/prod/
 # No output = OK
 ```
 
-Not changed → see CUSTOMIZATION.md
+If output exists → see CUSTOMIZATION.md
 
-## Installation
+## Installation Steps
 
 ### 1. Create Namespace
 
@@ -44,11 +44,11 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 ### 3. Wait for Pods (2-3 min)
 
 ```bash
-# Watch pods
+# Real-time monitoring
 kubectl get pods -n argocd -w
 # Ctrl+C to exit
 
-# Or wait
+# Or wait command
 kubectl wait --for=condition=available --timeout=300s deployment -n argocd --all
 ```
 
@@ -65,7 +65,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
-### 5. Configure Argo CD (Kustomize Helm)
+### 5. Configure Argo CD (Kustomize Helm Support)
 
 ```bash
 kubectl patch configmap argocd-cm -n argocd --type merge \
@@ -114,9 +114,9 @@ vso-resources      Synced        Progressing
 ghost              Synced        Progressing
 ```
 
-## Wait for Sync
+## Wait for Applications Sync
 
-Sync wave order (total 5-10 min):
+Sync Wave Order (Total 5-10 min):
 
 | Wave | App | Purpose | Time |
 |------|-----|---------|------|
@@ -129,7 +129,7 @@ Sync wave order (total 5-10 min):
 | `3` | vso-resources | Vault connection & secret mapping | 30s |
 | `4` | ghost | Ghost + MySQL | 2-3m |
 
-Watch progress:
+Real-time monitoring:
 ```bash
 watch -n 5 kubectl get applications -n argocd
 ```
@@ -151,6 +151,30 @@ kubectl get applications -n argocd
 ```
 
 Degraded/Progressing: Vault not initialized yet (fixed in next step)
+
+### Verify Monitoring Stack Deployment
+
+Verify that the `observers` application has been deployed correctly.
+
+```bash
+# Verify Prometheus Operator CRDs
+kubectl get crd | grep monitoring.coreos.com
+
+# Expected output:
+# prometheuses.monitoring.coreos.com
+# servicemonitors.monitoring.coreos.com
+# probes.monitoring.coreos.com
+# podmonitors.monitoring.coreos.com
+
+# Verify Prometheus Pod
+kubectl get pods -n observers -l app.kubernetes.io/name=prometheus
+
+# Expected output:
+# prometheus-kube-prometheus-stack-prometheus-0   2/2   Running
+```
+
+> [!NOTE]
+> The monitoring stack is required for configuring ServiceMonitors in [10-monitoring.md](./10-monitoring.md).
 
 Pod status:
 ```bash
@@ -181,7 +205,7 @@ kubectl get applications -n argocd --no-headers | awk '{print $1 " - " $2 " - " 
 echo "=== Done ==="
 ```
 
-Ready to proceed:
+Ready to proceed conditions:
 - All Argo CD pods Running
 - Vault pod Running (0/1 normal - not initialized)
 - All Applications Synced (9 total)
@@ -219,12 +243,12 @@ kubectl patch configmap argocd-cm -n argocd --type merge \
 kubectl rollout restart deployment argocd-repo-server -n argocd
 kubectl rollout status deployment argocd-repo-server -n argocd
 
-# Refresh app
+# Application refresh
 kubectl patch application observers -n argocd \
   --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
 ```
 
-### Git URL Still "your-org"
+### Git URL "your-org"
 
 ```bash
 kubectl delete application blogstack-root -n argocd
@@ -259,7 +283,7 @@ curl -I https://registry.hub.docker.com
 # Wait for auto-retry
 ```
 
-## Argo CD UI (Optional)
+## Argo CD UI Access (Optional)
 
 VM:
 ```bash
@@ -277,7 +301,7 @@ Browser: `https://localhost:8080`
 
 ## Next Steps
 
-Argo CD installation complete
+Argo CD installation complete.
 
 Current state:
 - Argo CD installed

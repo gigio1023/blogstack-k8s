@@ -14,7 +14,7 @@ fi
 validate_overlay() {
   local path="$1"
   echo "\n=== VALIDATE: ${path} ==="
-  "$KUSTOMIZE" build "$path" >/tmp/manifest.yaml
+  "$KUSTOMIZE" build --enable-helm --load-restrictor=LoadRestrictionsNone "$path" >/tmp/manifest.yaml
   echo "[ok] kustomize build"
   if command -v "$KUBECONFORM" >/dev/null 2>&1; then
     "$KUBECONFORM" -strict -summary </tmp/manifest.yaml
@@ -36,5 +36,3 @@ validate_overlay "$ROOT_DIR/security/vso-operator"
 validate_overlay "$ROOT_DIR/security/vso-resources"
 
 echo "\nAll validations completed."
-
-
