@@ -163,13 +163,23 @@ kubectl get crd \
   podmonitors.monitoring.coreos.com \
   probes.monitoring.coreos.com
 # If any NotFound appears, CRDs are missing.
-
-# Sync observers with ServerSideApply enabled
-kubectl patch application observers -n argocd \
-  -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
-  --type merge
-kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
 ```
+
+Remediation:
+- Ensure the `observers-crds` Application exists and is Synced/Healthy.
+  ```bash
+  kubectl get application observers-crds -n argocd
+  # Apply SSA if missing
+  kubectl patch application observers-crds -n argocd \
+    -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
+    --type merge
+  kubectl patch application observers-crds -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+  ```
+- After CRDs are installed, sync the `observers` Application.
+  ```bash
+  kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+  ```
+- CRD installation is disabled in `observers` Helm values (includeCRDs: false, crds.enabled: false), so the CRD app must succeed first.
 
 ### ingress-nginx ServiceMonitor ID conflict
 

@@ -163,13 +163,23 @@ kubectl get crd \
   podmonitors.monitoring.coreos.com \
   probes.monitoring.coreos.com
 # NotFound가 하나라도 있으면 CRD가 설치되지 않은 상태
-
-# observers 앱을 ServerSideApply 옵션으로 동기화
-kubectl patch application observers -n argocd \
-  -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
-  --type merge
-kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
 ```
+
+조치:
+- `observers-crds` 애플리케이션이 존재하는지 확인하고, `Synced/Healthy` 상태인지 확인
+  ```bash
+  kubectl get application observers-crds -n argocd
+  # 필요 시 SSA 적용
+  kubectl patch application observers-crds -n argocd \
+    -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
+    --type merge
+  kubectl patch application observers-crds -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+  ```
+- CRD 설치가 완료된 것을 확인한 뒤 `observers` 애플리케이션을 동기화
+  ```bash
+  kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
+  ```
+- `kube-prometheus-stack` 값에서 CRD 설치를 비활성화(includeCRDs: false, crds.enabled: false)했으므로 CRD 앱이 먼저 성공해야 합니다.
 
 ### ingress-nginx ServiceMonitor ID 충돌
 

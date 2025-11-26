@@ -17,7 +17,26 @@ NC='\033[0m' # No Color
 ERRORS=0
 
 # 1. observers Application 확인
-echo "1. ArgoCD observers Application 확인..."
+echo "1. ArgoCD observers-crds Application 확인..."
+if ! kubectl get application observers-crds -n argocd &>/dev/null; then
+    echo -e "${RED}❌ observers-crds Application이 없습니다.${NC}"
+    echo "   → clusters/prod/apps.yaml에 CRD 앱이 등록되었는지 확인하세요."
+    ERRORS=$((ERRORS + 1))
+else
+    APP_STATUS=$(kubectl get application observers-crds -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null)
+    SYNC_STATUS=$(kubectl get application observers-crds -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null)
+
+    if [[ "$APP_STATUS" == "Healthy" && "$SYNC_STATUS" == "Synced" ]]; then
+        echo -e "${GREEN}✅ observers-crds Application: Synced, Healthy${NC}"
+    else
+        echo -e "${YELLOW}⚠️  observers-crds 상태: Sync=$SYNC_STATUS, Health=$APP_STATUS${NC}"
+        echo "   → CRD가 설치되지 않으면 이후 앱이 모두 실패합니다. 먼저 CRD 앱을 동기화하세요."
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+echo ""
+
+echo "2. ArgoCD observers Application 확인..."
 if ! kubectl get application observers -n argocd &>/dev/null; then
     echo -e "${RED}❌ observers Application이 없습니다.${NC}"
     echo "   → 02-argocd-setup.md를 먼저 완료하세요."
@@ -25,7 +44,7 @@ if ! kubectl get application observers -n argocd &>/dev/null; then
 else
     APP_STATUS=$(kubectl get application observers -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null)
     SYNC_STATUS=$(kubectl get application observers -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null)
-    
+
     if [[ "$APP_STATUS" == "Healthy" && "$SYNC_STATUS" == "Synced" ]]; then
         echo -e "${GREEN}✅ observers Application: Synced, Healthy${NC}"
     else
@@ -36,8 +55,8 @@ else
 fi
 echo ""
 
-# 2. Prometheus CRD 확인
-echo "2. Prometheus Operator CRD 확인..."
+# 3. Prometheus CRD 확인
+echo "3. Prometheus Operator CRD 확인..."
 REQUIRED_CRDS=(
     "servicemonitors.monitoring.coreos.com"
     "prometheusrules.monitoring.coreos.com"
@@ -59,7 +78,7 @@ done
 echo ""
 
 # 3. Prometheus Pod 확인
-echo "3. Prometheus Pod 상태 확인..."
+echo "4. Prometheus Pod 상태 확인..."
 if kubectl get pods -n observers -l app.kubernetes.io/name=prometheus &>/dev/null; then
     POD_STATUS=$(kubectl get pods -n observers -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
     POD_READY=$(kubectl get pods -n observers -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null)
@@ -77,7 +96,7 @@ fi
 echo ""
 
 # 4. Grafana Pod 확인
-echo "4. Grafana Pod 상태 확인..."
+echo "5. Grafana Pod 상태 확인..."
 if kubectl get pods -n observers -l app.kubernetes.io/name=grafana &>/dev/null; then
     GRAFANA_STATUS=$(kubectl get pods -n observers -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
     

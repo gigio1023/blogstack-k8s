@@ -3,13 +3,14 @@
 Prometheus, Grafana, Loki 기반의 통합 모니터링 인프라 구축
 
 > [!WARNING]
-> `observers` 애플리케이션은 ArgoCD `ServerSideApply=true` 옵션으로 배포해야 kube-prometheus-stack CRD가 누락되지 않습니다. CRD가 설치되지 않으면 모든 ServiceMonitor/Probe 리소스가 실패합니다.
+> `observers-crds` 애플리케이션을 **먼저** 동기화해야 Prometheus Operator CRD가 설치됩니다. `observers`는 CRD 설치를 건너뛰도록 설정되어 있으므로, `observers-crds`가 Synced/Healthy가 아니면 ServiceMonitor/Probe 리소스가 모두 실패합니다.
 
 ## 개요
 
 - **메트릭**: Prometheus (Pull 방식)
 - **시각화**: Grafana
 - **로그**: Loki + Promtail
+- **에이전트**: Grafana Alloy (Standalone, CRD 없음)
 - **가용성**: Blackbox Exporter (HTTP Probing)
 - **구성요소**:
   - Node Exporter: 인프라 리소스
@@ -20,7 +21,16 @@ Prometheus, Grafana, Loki 기반의 통합 모니터링 인프라 구축
 
 모니터링 구성을 시작하기 전에 다음 조건이 충족되어야 합니다.
 
-### 1. ArgoCD를 통한 모니터링 스택 배포 확인
+### 1. CRD 전용 앱(observers-crds) 배포 확인
+
+Prometheus Operator CRD를 먼저 설치합니다.
+
+```bash
+kubectl get application observers-crds -n argocd
+# 예상 출력: observers-crds   Synced   Healthy
+```
+
+### 2. ArgoCD를 통한 모니터링 스택 배포 확인
 
 `observers` 애플리케이션이 정상적으로 배포되어야 Prometheus, Grafana, Loki가 설치됩니다.
 
@@ -32,9 +42,9 @@ kubectl get application observers -n argocd
 ```
 
 > [!WARNING]
-> `observers` 애플리케이션이 없거나 `Degraded` 상태라면 먼저 [02-argocd-setup.md](./02-argocd-setup.md)를 완료하세요.
+> `observers` 애플리케이션이 없거나 `Degraded` 상태라면 먼저 [02-argocd-setup.md](./02-argocd-setup.md)를 완료하세요. `observers-crds`가 Healthy가 아닌 경우 CRD 설치부터 복구하세요.
 
-### 2. Prometheus Operator CRD 설치 확인
+### 3. Prometheus Operator CRD 설치 확인
 
 Prometheus Operator가 설치되면서 함께 생성되는 CRD들을 한 번에 확인합니다.
 
@@ -50,7 +60,7 @@ kubectl get crd \
 
 CRD가 없다면 ArgoCD가 아직 `observers`를 배포하지 않았거나 배포에 실패한 것입니다.
 
-### 3. 모니터링 Pod 상태 확인
+### 4. 모니터링 Pod 상태 확인
 
 ```bash
 # Prometheus, Grafana, Loki Pod 확인
@@ -77,7 +87,7 @@ bash scripts/check-monitoring-prerequisites.sh
 
 ### 1. 모니터링 스택 확인
 
-`apps/observers` 애플리케이션은 `kube-prometheus-stack` 헬름 차트를 기반으로 합니다.
+`apps/observers` 애플리케이션은 `kube-prometheus-stack` 헬름 차트를 기반으로 합니다. CRD는 `observers-crds` 애플리케이션에서 설치하며, `observers` 헬름 값에서는 CRD 설치를 비활성화합니다(`includeCRDs: false`, `crds.enabled: false`).
 
 관련 파일:
 - [apps/observers/base/kustomization.yaml](../../apps/observers/base/kustomization.yaml)

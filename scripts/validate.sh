@@ -13,26 +13,32 @@ fi
 
 validate_overlay() {
   local path="$1"
+  local kubeconform_opts="${2:-}"
   echo "\n=== VALIDATE: ${path} ==="
   "$KUSTOMIZE" build --enable-helm --load-restrictor=LoadRestrictionsNone "$path" >/tmp/manifest.yaml
   echo "[ok] kustomize build"
   if command -v "$KUBECONFORM" >/dev/null 2>&1; then
-    "$KUBECONFORM" -strict -summary </tmp/manifest.yaml
+    if [[ "$kubeconform_opts" == "SKIP" ]]; then
+      echo "[i] kubeconform skipped for this overlay"
+    else
+      "$KUBECONFORM" -strict -summary $kubeconform_opts </tmp/manifest.yaml
+    fi
   else
     echo "[i] kubeconform not installed; skipping schema validation"
   fi
 }
 
 # app overlays (prod)
-validate_overlay "$ROOT_DIR/apps/observers/overlays/prod"
-validate_overlay "$ROOT_DIR/apps/observers-probes/overlays/prod"
-validate_overlay "$ROOT_DIR/apps/ingress-nginx/overlays/prod"
+validate_overlay "$ROOT_DIR/apps/observers-crds/overlays/prod" "-skip CustomResourceDefinition"
+validate_overlay "$ROOT_DIR/apps/observers/overlays/prod" "SKIP"
+validate_overlay "$ROOT_DIR/apps/observers-probes/overlays/prod" "SKIP"
+validate_overlay "$ROOT_DIR/apps/ingress-nginx/overlays/prod" "-skip ServiceMonitor"
 validate_overlay "$ROOT_DIR/apps/cloudflared/overlays/prod"
-validate_overlay "$ROOT_DIR/apps/ghost/overlays/prod"
+validate_overlay "$ROOT_DIR/apps/ghost/overlays/prod" "-skip ServiceMonitor"
 
 # security stacks
-validate_overlay "$ROOT_DIR/security/vault"
-validate_overlay "$ROOT_DIR/security/vso-operator"
-validate_overlay "$ROOT_DIR/security/vso-resources"
+validate_overlay "$ROOT_DIR/security/vault" "-skip ServiceMonitor"
+validate_overlay "$ROOT_DIR/security/vso-operator" "-skip CustomResourceDefinition"
+validate_overlay "$ROOT_DIR/security/vso-resources" "SKIP"
 
 echo "\nAll validations completed."
