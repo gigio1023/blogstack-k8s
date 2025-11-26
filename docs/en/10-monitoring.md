@@ -3,13 +3,14 @@
 Unified monitoring infrastructure based on Prometheus, Grafana, and Loki.
 
 > [!WARNING]
-> Deploy the `observers` ArgoCD application with `ServerSideApply=true` to avoid missing kube-prometheus-stack CRDs. If CRDs are absent, all ServiceMonitor/Probe resources will fail.
+> Sync the `observers-crds` application **first** so Prometheus Operator CRDs exist. The `observers` app skips CRD installation, so if `observers-crds` is not Synced/Healthy, all ServiceMonitor/Probe resources will fail.
 
 ## Overview
 
 - **Metrics**: Prometheus (Pull-based)
 - **Visualization**: Grafana
 - **Logs**: Loki + Promtail
+- **Agent**: Grafana Alloy (Standalone, no Alloy CRD required)
 - **Availability**: Blackbox Exporter (HTTP Probing)
 - **Components**:
   - Node Exporter: Infrastructure resources
@@ -20,7 +21,16 @@ Unified monitoring infrastructure based on Prometheus, Grafana, and Loki.
 
 Before starting the monitoring configuration, ensure the following conditions are met.
 
-### 1. Verify Monitoring Stack Deployment via ArgoCD
+### 1. Verify CRD-only app (observers-crds) via ArgoCD
+
+Install Prometheus Operator CRDs first.
+
+```bash
+kubectl get application observers-crds -n argocd
+# Expected output: observers-crds   Synced   Healthy
+```
+
+### 2. Verify Monitoring Stack Deployment via ArgoCD
 
 The `observers` application must be successfully deployed for Prometheus, Grafana, and Loki to be installed.
 
@@ -32,9 +42,9 @@ kubectl get application observers -n argocd
 ```
 
 > [!WARNING]
-> If the `observers` application is missing or in a `Degraded` state, complete [02-argocd-setup.md](./02-argocd-setup.md) first.
+> If the `observers` application is missing or in a `Degraded` state, complete [02-argocd-setup.md](./02-argocd-setup.md) first. If `observers-crds` is not Healthy, fix CRD installation before continuing.
 
-### 2. Verify Prometheus Operator CRDs
+### 3. Verify Prometheus Operator CRDs
 
 Check the CRDs created during Prometheus Operator installation.
 
@@ -50,7 +60,7 @@ kubectl get crd \
 
 If CRDs are missing, ArgoCD has not yet deployed `observers` or the deployment failed.
 
-### 3. Verify Monitoring Pod Status
+### 4. Verify Monitoring Pod Status
 
 ```bash
 # Check Prometheus, Grafana, Loki Pods
@@ -77,7 +87,7 @@ bash scripts/check-monitoring-prerequisites.sh
 
 ### 1. Verify Monitoring Stack Configuration
 
-The `apps/observers` application is based on the `kube-prometheus-stack` Helm chart.
+The `apps/observers` application is based on the `kube-prometheus-stack` Helm chart. CRDs are installed by the `observers-crds` application, and CRD installation is disabled in the `observers` Helm values (`includeCRDs: false`, `crds.enabled: false`).
 
 Related file:
 - [apps/observers/base/kustomization.yaml](../../apps/observers/base/kustomization.yaml)
