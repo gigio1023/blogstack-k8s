@@ -50,4 +50,17 @@ helmCharts:
       config:
         clients:
           - url: http://loki.observers.svc.cluster.local:3100/loki/api/v1/push
-
+  - name: alloy
+    repo: https://grafana.github.io/helm-charts
+    version: 1.4.0
+    releaseName: alloy
+    namespace: observers
+    valuesInline:
+      crds:
+        create: false
+      alloy:
+        configMap:
+          content: |
+            logging {
+              level = "info"
+            }
