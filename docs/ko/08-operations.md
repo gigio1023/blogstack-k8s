@@ -12,7 +12,7 @@
 ### Grafana
 
 ```bash
-kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80 &
+kubectl port-forward -n observers svc/grafana 3000:80 &
 # http://localhost:3000
 # admin / admin (기본값)
 ```
@@ -26,11 +26,11 @@ kubectl port-forward -n argocd svc/argocd-server 8080:443 &
 
 ## 모니터링
 
-### Prometheus Targets
+### VictoriaMetrics Targets (vmagent)
 
 ```bash
-kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090 &
-# http://localhost:9090/targets
+kubectl port-forward -n observers svc/vmagent 8429:8429 &
+# http://localhost:8429/targets
 ```
 
 확인 대상:

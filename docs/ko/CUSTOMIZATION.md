@@ -176,7 +176,7 @@ EOF
 
 ## 설계 원칙
 
-**중앙화된 설정**: 모든 개인화 설정은 `config/prod.env` 한 곳에서 관리합니다. Kubernetes 리소스에는 도메인이나 개인 정보가 하드코딩되지 않습니다.
+**중앙화된 설정**: 기본 설정은 `config/prod.env`에서 관리하며, 모니터링 타깃은 `apps/observers/overlays/prod/vmagent-scrape.yml`에서 관리합니다.
 
 **재사용 가능한 인프라**: 이 리포지토리의 코드는 누구나 fork해서 `config/prod.env`만 수정하면 바로 사용할 수 있습니다.
 
@@ -192,18 +192,15 @@ email=admin@yourdomain.com               # 관리자 이메일
 timezone=Asia/Seoul                      # 시간대 (변경 가능)
 alertEmail=admin@yourdomain.com          # 알림 수신 이메일
 
-# 모니터링 URL (도메인만 변경하면 자동 맞춤)
-monitorUrlHome=https://yourdomain.com/
-monitorUrlSitemap=https://yourdomain.com/sitemap.xml
-monitorUrlGhost=https://yourdomain.com/ghost/
+# 모니터링 타깃은 vmagent-scrape.yml에서 변경 (아래 2단계 참고)
 ```
 
-### 중요: 이 파일만 수정하면 됩니다!
+### 중요: 기본 설정은 이 파일에서 수정합니다
 
 - ✅ **이 파일 수정**: `config/prod.env`
+- ✅ **모니터링 타깃 수정**: `apps/observers/overlays/prod/vmagent-scrape.yml`
 - ❌ **수정하지 않아도 됨**:
   - `apps/ghost/base/ingress.yaml` (자동 주입)
-  - `apps/observers/base/probe.yaml` (자동 주입)
   - 기타 모든 Kubernetes 리소스
 
 ## 2단계: Git Repository URL 변경
@@ -277,11 +274,11 @@ kubectl get ingress -n blog ghost -o yaml | grep host
 # 출력: host: yourdomain.com (config/prod.env의 domain 값)
 ```
 
-### 2. Blackbox Probe Targets
+### 2. Blackbox Targets
 
 ```bash
-kubectl get probe -n observers blog-external -o yaml | grep -A3 static:
-# 출력: config/prod.env의 monitorUrl* 값들
+kubectl get configmap -n observers vmagent-scrape -o yaml | grep -A5 blackbox
+# 출력: vmagent-scrape.yml의 targets 값들
 ```
 
 ### 3. Ghost URL 환경변수
@@ -356,14 +353,19 @@ git push
 kubectl patch app ghost -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
 ```
 
-### Blackbox Probe가 example.invalid 체크
+### Blackbox Targets가 example.invalid 체크
 
-**원인**: observers 앱이 아직 동기화되지 않음
+**원인**: `vmagent-scrape.yml`에서 도메인을 변경하지 않았거나, observers 앱이 아직 동기화되지 않음
 
 **해결**:
 ```bash
-kubectl delete pod -n argocd -l app.kubernetes.io/name=argocd-repo-server
-# Argo CD가 재시작되면 자동 동기화
+# 파일 수정 후 커밋/푸시
+git add apps/observers/overlays/prod/vmagent-scrape.yml
+git commit -m "docs(monitoring): update blackbox targets"
+git push
+
+# 필요 시 Argo CD 강제 리프레시
+kubectl patch app observers -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
 ```
 
 ## 추가 리소스
@@ -371,4 +373,3 @@ kubectl delete pod -n argocd -l app.kubernetes.io/name=argocd-repo-server
 - [config/README.md](../config/README.md) - 설정 파일 상세 설명
 - [security/vault/secrets-guide.md](../security/vault/secrets-guide.md) - Vault 시크릿 가이드
 - [docs/03-vault-setup.md](./03-vault-setup.md) - Vault 초기화 방법
-

@@ -5,7 +5,7 @@ GitOps를 위한 Argo CD 설치 및 App-of-Apps 패턴 배포
 ## 개요
 
 - Argo CD: Git 기반 선언적 배포 도구
-- Applications가 CRD 의존성 해결을 위해 8개로 분리됨
+- Applications가 역할별로 분리됨 (모니터링은 observers 단일 앱)
 - 예상 소요 시간: 15분
 
 ## 전제 조건
@@ -105,7 +105,6 @@ kubectl get applications -n argocd
 NAME               SYNC STATUS   HEALTH STATUS   
 blogstack-root     Synced        Healthy
 observers          Synced        Progressing
-observers-probes   Synced        Progressing
 ingress-nginx      Synced        Progressing
 cloudflared        Synced        Progressing
 vault              Synced        Progressing
@@ -120,8 +119,7 @@ Sync Wave 순서 (총 5-10분):
 
 | Wave | App | 역할 | 소요 |
 |------|-----|------|------|
-| `-2` | observers | Prometheus, Grafana, Loki | 3-5분 |
-| `-1` | observers-probes | Blackbox Exporter | 30초 |
+| `-2` | observers | VictoriaMetrics, Grafana, Loki, Blackbox | 3-5분 |
 | `-1` | ingress-nginx | Ingress Controller | 1-2분 |
 | `0` | cloudflared | Cloudflare Tunnel | 1분 |
 | `1` | vault | HashiCorp Vault | 1-2분 |
@@ -141,7 +139,6 @@ kubectl get applications -n argocd
 # NAME               SYNC STATUS   HEALTH STATUS
 # blogstack-root     Synced        Healthy
 # observers          Synced        Healthy
-# observers-probes   Synced        Healthy
 # ingress-nginx      Synced        Healthy
 # cloudflared        Synced        Degraded      ← 정상 (Vault 시크릿 대기)
 # vault              Synced        Progressing   ← 정상 (미초기화)
@@ -157,24 +154,16 @@ Degraded/Progressing: Vault 미초기화 및 시크릿 미입력 (다음 단계�
 `observers` 애플리케이션이 정상 배포되었는지 확인합니다.
 
 ```bash
-# Prometheus Operator CRD 설치 확인
-kubectl get crd | grep monitoring.coreos.com
+# VMSingle/Agent Pod 확인
+kubectl get pods -n observers -l app.kubernetes.io/instance=vmsingle
+kubectl get pods -n observers -l app.kubernetes.io/instance=vmagent
 
-# 예상 출력:
-# prometheuses.monitoring.coreos.com
-# servicemonitors.monitoring.coreos.com
-# probes.monitoring.coreos.com
-# podmonitors.monitoring.coreos.com
-
-# Prometheus Pod 확인
-kubectl get pods -n observers -l app.kubernetes.io/name=prometheus
-
-# 예상 출력:
-# prometheus-kube-prometheus-stack-prometheus-0   2/2   Running
+# Grafana Pod 확인
+kubectl get pods -n observers -l app.kubernetes.io/name=grafana
 ```
 
 > [!NOTE]
-> 모니터링 스택은 이후 [10-monitoring.md](./10-monitoring.md)에서 ServiceMonitor 등을 구성할 때 필요합니다.
+> 모니터링 스택 상세 구성은 [10-monitoring.md](./10-monitoring.md)를 참고하세요.
 
 Pod 상태:
 ```bash

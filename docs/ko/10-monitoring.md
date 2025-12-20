@@ -1,77 +1,45 @@
 # 10. 모니터링 구성
 
-Prometheus, Grafana, Loki 기반의 통합 모니터링 인프라 구축
-
-> [!WARNING]
-> `observers-crds` 애플리케이션을 **먼저** 동기화해야 Prometheus Operator CRD가 설치됩니다. `observers`는 CRD 설치를 건너뛰도록 설정되어 있으므로, `observers-crds`가 Synced/Healthy가 아니면 ServiceMonitor/Probe 리소스가 모두 실패합니다.
+VictoriaMetrics, Grafana, Loki 기반의 통합 모니터링 인프라 구축
 
 ## 개요
 
-- **메트릭**: Prometheus (Pull 방식)
+- **메트릭**: VictoriaMetrics (vmagent → vmsingle)
 - **시각화**: Grafana
 - **로그**: Loki + Promtail
-- **에이전트**: Grafana Alloy (Standalone, CRD 없음)
 - **가용성**: Blackbox Exporter (HTTP Probing)
 - **구성요소**:
-  - Node Exporter: 인프라 리소스
   - MySQL Exporter: DB 성능 지표 (Sidecar)
   - Ingress NGINX: 웹 트래픽 및 에러율
+  - Cloudflared: 터널 상태 및 커넥션
+  - Vault: 내부 메트릭 API
 
 ## 전제 조건
 
-모니터링 구성을 시작하기 전에 다음 조건이 충족되어야 합니다.
+### 1. Argo CD 모니터링 스택 배포 확인
 
-### 1. CRD 전용 앱(observers-crds) 배포 확인
-
-Prometheus Operator CRD를 먼저 설치합니다.
+`observers` 애플리케이션이 정상적으로 배포되어야 합니다.
 
 ```bash
-kubectl get application observers-crds -n argocd
-# 예상 출력: observers-crds   Synced   Healthy
-```
-
-### 2. ArgoCD를 통한 모니터링 스택 배포 확인
-
-`observers` 애플리케이션이 정상적으로 배포되어야 Prometheus, Grafana, Loki가 설치됩니다.
-
-```bash
-# ArgoCD Application 상태 확인
 kubectl get application observers -n argocd
-
 # 예상 출력: observers   Synced   Healthy
 ```
 
 > [!WARNING]
-> `observers` 애플리케이션이 없거나 `Degraded` 상태라면 먼저 [02-argocd-setup.md](./02-argocd-setup.md)를 완료하세요. `observers-crds`가 Healthy가 아닌 경우 CRD 설치부터 복구하세요.
+> `observers` 애플리케이션이 없거나 `Degraded` 상태라면 먼저 [02-argocd-setup.md](./02-argocd-setup.md)를 완료하세요.
 
-### 3. Prometheus Operator CRD 설치 확인
-
-Prometheus Operator가 설치되면서 함께 생성되는 CRD들을 한 번에 확인합니다.
+### 2. 모니터링 Pod 상태 확인
 
 ```bash
-kubectl get crd \
-  servicemonitors.monitoring.coreos.com \
-  prometheusrules.monitoring.coreos.com \
-  prometheuses.monitoring.coreos.com \
-  alertmanagers.monitoring.coreos.com \
-  podmonitors.monitoring.coreos.com \
-  probes.monitoring.coreos.com
-```
-
-CRD가 없다면 ArgoCD가 아직 `observers`를 배포하지 않았거나 배포에 실패한 것입니다.
-
-### 4. 모니터링 Pod 상태 확인
-
-```bash
-# Prometheus, Grafana, Loki Pod 확인
 kubectl get pods -n observers
 
 # 예상 출력:
-# prometheus-kube-prometheus-stack-prometheus-0   2/2   Running
-# kube-prometheus-stack-grafana-xxx               3/3   Running
-# kube-prometheus-stack-operator-xxx              1/1   Running
-# loki-0                                          1/1   Running
-# promtail-xxx                                    1/1   Running
+# vmsingle-0                           1/1   Running
+# vmagent-xxx                          1/1   Running
+# grafana-xxx                          1/1   Running
+# loki-0                               1/1   Running
+# promtail-xxx                         1/1   Running
+# blackbox-exporter-xxx                1/1   Running
 ```
 
 ### 검증 스크립트 (선택)
@@ -85,159 +53,114 @@ bash scripts/check-monitoring-prerequisites.sh
 
 ## 구성 단계
 
-### 1. 모니터링 스택 확인
+### 1. 모니터링 스택 구성 확인
 
-`apps/observers` 애플리케이션은 `kube-prometheus-stack` 헬름 차트를 기반으로 합니다. CRD는 `observers-crds` 애플리케이션에서 설치하며, `observers` 헬름 값에서는 CRD 설치를 비활성화합니다(`includeCRDs: false`, `crds.enabled: false`).
+`apps/observers` 애플리케이션은 다음 Helm 차트를 사용합니다:
+
+- `victoria-metrics-single`
+- `victoria-metrics-agent`
+- `grafana`
+- `loki`, `promtail`
+- `prometheus-blackbox-exporter`
 
 관련 파일:
-- [apps/observers/base/kustomization.yaml](../../apps/observers/base/kustomization.yaml)
+- `apps/observers/base/kustomization.yaml`
 
-주요 설정:
-- `serviceMonitorSelector: {}`: 모든 ServiceMonitor 수집
-- `serviceMonitorNamespaceSelector: {}`: 모든 네임스페이스 수집
+### 2. vmagent 스크레이프 설정
 
-```bash
-# Prometheus 설정 확인 (모든 ServiceMonitor 수집 여부)
-kubectl get prometheus -n observers -o yaml | grep -A 2 serviceMonitorSelector
-# serviceMonitorSelector: {} 확인
-```
+vmagent는 ConfigMap의 `scrape.yml`을 사용합니다.
 
-### 2. MySQL 모니터링
+- 기본값: `apps/observers/base/vmagent-scrape.yml`
+- 프로덕션 값: `apps/observers/overlays/prod/vmagent-scrape.yml`
 
-Ghost 데이터베이스 메트릭 수집을 위해 사이드카 컨테이너와 ServiceMonitor를 추가합니다.
+`vmagent-scrape.yml`에서 다음 타깃을 관리합니다:
+- MySQL Exporter
+- Ingress NGINX
+- Cloudflared
+- Vault
+- Blackbox Exporter (외부 URL)
 
-#### Exporter 자격증명 준비
+### 3. MySQL 모니터링
 
-모니터링 전용 MySQL 사용자를 최소 권한으로 만들고 Vault에 저장해 VSO로 동기화합니다.
-
-```bash
-# Vault 정책 및 시크릿 확인
-vault policy read mysql
-kubectl get secret -n blog mysql-exporter-secret
-```
-
-#### Exporter 사이드카 추가
-
-`mysql` StatefulSet에 `mysql-exporter` 컨테이너가 추가되었는지 확인합니다.
+Ghost 데이터베이스 메트릭 수집을 위해 사이드카 컨테이너와 Service를 사용합니다.
 
 ```bash
 kubectl get statefulset mysql -n blog -o jsonpath='{.spec.template.spec.containers[*].name}'
 # 출력: mysql mysql-exporter
-```
 
-#### ServiceMonitor 및 Service 생성
-
-Prometheus가 Exporter에 접근할 수 있도록 리소스를 생성합니다.
-
-```bash
-# Service 확인 (9104 포트)
 kubectl get svc -n blog mysql-exporter
-
-# ServiceMonitor 확인
-kubectl get servicemonitor -n blog mysql-exporter
 ```
 
-### 3. Ingress 및 가용성 모니터링
-
-#### Ingress NGINX 메트릭
-
-Ingress Controller의 메트릭 수집 활성화 여부를 확인합니다.
+### 4. Ingress 및 Vault/Cloudflared 모니터링
 
 ```bash
-# 메트릭 활성화 확인 (metrics.enabled=true)
+# Ingress NGINX 메트릭 활성화 확인
 kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].args}' | grep metrics
 
-# ServiceMonitor 확인
-kubectl get servicemonitor -n ingress-nginx ingress-nginx-controller
+# Cloudflared 메트릭 서비스 확인
+kubectl get svc -n cloudflared cloudflared
+
+# Vault 메트릭 API 확인
+kubectl get svc -n vault vault
 ```
 
-> Helm 값(`controller.metrics.serviceMonitor.enabled: true`)으로 ServiceMonitor가 생성되므로 오버레이에 별도 ServiceMonitor 매니페스트를 추가하지 않습니다.
+### 5. Blackbox Probing
 
-#### Blackbox Probing
-
-외부 URL 헬스 체크를 위한 Probe 리소스를 확인합니다.
+외부 URL 헬스 체크는 vmagent 설정의 `blackbox` 잡에서 관리합니다.
 
 ```bash
-# Probe 리소스 확인
-kubectl get probe -n observers blog-external
+# vmagent 설정 확인
+kubectl get configmap -n observers vmagent-scrape -o yaml
 ```
 
 ## 검증 및 확인
 
-### 1. Pod 상태 확인
-
-모니터링 스택의 주요 컴포넌트가 정상 동작하는지 확인합니다.
+### 1. vmagent Targets 확인
 
 ```bash
-kubectl get pods -n observers
-# prometheus-kube-prometheus-stack-prometheus-0 (Running)
-# kube-prometheus-stack-grafana-xxx (Running)
-# kube-prometheus-stack-operator-xxx (Running)
-# loki-0 (Running)
-# promtail-xxx (Running)
+kubectl port-forward -n observers svc/vmagent 8429:8429 &
+# http://localhost:8429/targets
 ```
 
-### 2. Prometheus Target 확인
+주요 Target 상태 `UP` 확인:
+- `mysql-exporter`
+- `ingress-nginx`
+- `cloudflared`
+- `vault`
+- `blackbox`
 
-Prometheus가 각 Exporter를 정상적으로 수집하고 있는지 확인합니다.
+### 2. vmsingle UI 확인
 
 ```bash
-# 포트 포워딩
-kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090 &
+kubectl port-forward -n observers svc/vmsingle 8428:8428 &
+# http://localhost:8428/vmui
 ```
 
-1. 브라우저 접속: `http://localhost:9090/targets`
-2. 주요 Target 상태 `UP` 확인:
-   - `serviceMonitor/blog/mysql-exporter/0`: MySQL Exporter
-   - `serviceMonitor/ingress-nginx/ingress-nginx-controller/0`: Ingress Controller
-   - `serviceMonitor/observers/kube-prometheus-stack-node-exporter/0`: Node Exporter
+예시 쿼리:
+- `up`
+- `probe_success{job="blackbox"}`
 
 ### 3. Grafana 대시보드 확인
 
-수집된 메트릭이 시각화되는지 확인합니다.
-
 ```bash
-# 포트 포워딩
-kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80 &
+kubectl port-forward -n observers svc/grafana 3000:80 &
+# http://localhost:3000
+# admin / admin (초기값)
 ```
 
-1. 브라우저 접속: `http://localhost:3000`
-   - 계정: `admin` / `admin` (초기값)
-2. 필수 대시보드 확인:
-   - **MySQL Overview** (ID: 7362): 'MySQL Connections', 'Questions' 그래프 데이터 확인
-   - **NGINX Ingress Controller** (ID: 9614): 'Controller Request Volume', 'Success Rate' 확인
-   - **Kubernetes / Compute Resources / Namespace (Pods)**: `blog` 네임스페이스 선택 후 Ghost Pod 리소스 확인
+필수 대시보드 확인:
+- **MySQL Overview** (ID: 7362)
+- **NGINX Ingress Controller** (ID: 9614)
+- **Kubernetes / Compute Resources / Namespace (Pods)**
 
 ### 4. 로그 수집 확인 (Loki)
 
 Grafana Explore 탭에서 로그가 검색되는지 확인합니다.
 
-1. Grafana → Explore 메뉴 이동
-2. 데이터 소스: `Loki` 선택
-3. LogQL 입력 및 실행:
-   ```logql
-   {namespace="blog", app="ghost"}
-   ```
+```logql
+{namespace="blog", app="ghost"}
+```
 
 ## 트러블슈팅
 
-### Target이 Down 상태인 경우
-
-1. **MySQL Exporter Down**:
-   - Exporter 로그 확인:
-     ```bash
-     kubectl logs -n blog mysql-0 -c mysql-exporter
-     ```
-   - 자격증명(Secret) 확인: `mysql-exporter-secret`이 올바르게 마운트되었는지 확인
-
-2. **Ingress NGINX Down**:
-   - ServiceMonitor 라벨 매칭 확인:
-     ```bash
-     kubectl get servicemonitor -n ingress-nginx ingress-nginx-controller -o yaml
-     # matchLabels가 Service의 라벨과 일치해야 함
-     ```
-
-### Grafana 데이터 없음
-
-1. 시간 범위 확인: 우측 상단 Time Range가 최근 시간인지 확인
-2. Prometheus 데이터 소스 연결 확인: Configuration → Data Sources → Prometheus → 'Save & Test'
+문제가 발생하면 [09-troubleshooting.md](./09-troubleshooting.md)를 참고하세요.
