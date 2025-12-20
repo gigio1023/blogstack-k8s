@@ -29,15 +29,13 @@ validate_overlay() {
 }
 
 # app overlays (prod)
-validate_overlay "$ROOT_DIR/apps/observers-crds/overlays/prod" "-skip CustomResourceDefinition"
-validate_overlay "$ROOT_DIR/apps/observers/overlays/prod" "SKIP"
-validate_overlay "$ROOT_DIR/apps/observers-probes/overlays/prod" "SKIP"
-validate_overlay "$ROOT_DIR/apps/ingress-nginx/overlays/prod" "-skip ServiceMonitor"
+validate_overlay "$ROOT_DIR/apps/observers/overlays/prod"
+validate_overlay "$ROOT_DIR/apps/ingress-nginx/overlays/prod"
 validate_overlay "$ROOT_DIR/apps/cloudflared/overlays/prod"
-validate_overlay "$ROOT_DIR/apps/ghost/overlays/prod" "-skip ServiceMonitor"
+validate_overlay "$ROOT_DIR/apps/ghost/overlays/prod"
 
 # security stacks
-validate_overlay "$ROOT_DIR/security/vault" "-skip ServiceMonitor"
+validate_overlay "$ROOT_DIR/security/vault"
 validate_overlay "$ROOT_DIR/security/vso-operator" "-skip CustomResourceDefinition"
 validate_overlay "$ROOT_DIR/security/vso-resources" "SKIP"
 

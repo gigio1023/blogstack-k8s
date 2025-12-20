@@ -153,7 +153,7 @@ main() {
     
     echo ""
     echo "--- Observability ---"
-    check_namespace_pods "observers" 3 || ((failed++))
+    check_namespace_pods "observers" 4 || ((failed++))
     
     echo ""
     echo "--- Networking ---"
@@ -195,4 +195,3 @@ main() {
 }
 
 main "$@"
-

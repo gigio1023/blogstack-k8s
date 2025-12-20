@@ -186,8 +186,9 @@ ${YELLOW}Next Steps:${NC}
    - ingress-nginx (wave -1)
    - cloudflared (wave 0)
    - vault (wave 1)
-   - vso (wave 2)
-   - ghost (wave 3)
+   - vso-operator (wave 2)
+   - vso-resources (wave 3)
+   - ghost (wave 4)
 
 3. ${GREEN}Initialize Vault:${NC}
    - Wait for Vault Pod to be Running (sealed state is OK)
@@ -207,8 +208,9 @@ ${YELLOW}Next Steps:${NC}
    - Admin: https://$domain/ghost
 
 6. ${GREEN}Check Monitoring:${NC}
-   - Grafana: kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80
-   - Prometheus: kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090
+   - Grafana: kubectl port-forward -n observers svc/grafana 3000:80
+   - VMAgent Targets: kubectl port-forward -n observers svc/vmagent 8429:8429
+   - VMSingle UI: kubectl port-forward -n observers svc/vmsingle 8428:8428
 
 ${GREEN}For detailed instructions, see:${NC}
 - docs/02-argocd-setup.md
@@ -253,4 +255,3 @@ EOF
 }
 
 main "$@"
-

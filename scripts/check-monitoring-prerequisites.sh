@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # 모니터링 구성 전제 조건 검증 스크립트
 # 사용법: bash scripts/check-monitoring-prerequisites.sh
 
-set -e
+set -euo pipefail
 
 echo "=== 모니터링 전제 조건 검증 ==="
 echo ""
@@ -16,99 +16,77 @@ NC='\033[0m' # No Color
 
 ERRORS=0
 
+check_app_status() {
+    local app_name=$1
+
+    if ! kubectl get application "$app_name" -n argocd &>/dev/null; then
+        echo -e "${RED}❌ ${app_name} Application이 없습니다.${NC}"
+        echo "   → 02-argocd-setup.md를 먼저 완료하세요."
+        ERRORS=$((ERRORS + 1))
+        return
+    fi
+
+    local app_status
+    local sync_status
+    app_status=$(kubectl get application "$app_name" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null)
+    sync_status=$(kubectl get application "$app_name" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null)
+
+    if [[ "$app_status" == "Healthy" && "$sync_status" == "Synced" ]]; then
+        echo -e "${GREEN}✅ ${app_name} Application: Synced, Healthy${NC}"
+    else
+        echo -e "${YELLOW}⚠️  ${app_name} 상태: Sync=$sync_status, Health=$app_status${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
+check_pod_ready() {
+    local label_selector=$1
+    local display_name=$2
+
+    if ! kubectl get pods -n observers -l "$label_selector" &>/dev/null; then
+        echo -e "${RED}❌ ${display_name} Pod를 찾을 수 없습니다.${NC}"
+        ERRORS=$((ERRORS + 1))
+        return
+    fi
+
+    local pod_status
+    local pod_ready
+    pod_status=$(kubectl get pods -n observers -l "$label_selector" -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+    pod_ready=$(kubectl get pods -n observers -l "$label_selector" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null)
+
+    if [[ "$pod_status" == "Running" && "$pod_ready" == "true" ]]; then
+        echo -e "${GREEN}✅ ${display_name} Pod: Running${NC}"
+    else
+        echo -e "${YELLOW}⚠️  ${display_name} Pod 상태: $pod_status (Ready: $pod_ready)${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
 # 1. observers Application 확인
-echo "1. ArgoCD observers-crds Application 확인..."
-if ! kubectl get application observers-crds -n argocd &>/dev/null; then
-    echo -e "${RED}❌ observers-crds Application이 없습니다.${NC}"
-    echo "   → clusters/prod/apps.yaml에 CRD 앱이 등록되었는지 확인하세요."
-    ERRORS=$((ERRORS + 1))
-else
-    APP_STATUS=$(kubectl get application observers-crds -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null)
-    SYNC_STATUS=$(kubectl get application observers-crds -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null)
-
-    if [[ "$APP_STATUS" == "Healthy" && "$SYNC_STATUS" == "Synced" ]]; then
-        echo -e "${GREEN}✅ observers-crds Application: Synced, Healthy${NC}"
-    else
-        echo -e "${YELLOW}⚠️  observers-crds 상태: Sync=$SYNC_STATUS, Health=$APP_STATUS${NC}"
-        echo "   → CRD가 설치되지 않으면 이후 앱이 모두 실패합니다. 먼저 CRD 앱을 동기화하세요."
-        ERRORS=$((ERRORS + 1))
-    fi
-fi
+echo "1. ArgoCD observers Application 확인..."
+check_app_status "observers"
 echo ""
 
-echo "2. ArgoCD observers Application 확인..."
-if ! kubectl get application observers -n argocd &>/dev/null; then
-    echo -e "${RED}❌ observers Application이 없습니다.${NC}"
-    echo "   → 02-argocd-setup.md를 먼저 완료하세요."
-    ERRORS=$((ERRORS + 1))
-else
-    APP_STATUS=$(kubectl get application observers -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null)
-    SYNC_STATUS=$(kubectl get application observers -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null)
-
-    if [[ "$APP_STATUS" == "Healthy" && "$SYNC_STATUS" == "Synced" ]]; then
-        echo -e "${GREEN}✅ observers Application: Synced, Healthy${NC}"
-    else
-        echo -e "${YELLOW}⚠️  observers Application 상태: Sync=$SYNC_STATUS, Health=$APP_STATUS${NC}"
-        echo "   → 정상 배포를 기다리거나 ArgoCD 로그를 확인하세요."
-        ERRORS=$((ERRORS + 1))
-    fi
-fi
+# 2. VMSingle Pod 확인
+echo "2. VMSingle Pod 상태 확인..."
+check_pod_ready "app.kubernetes.io/instance=vmsingle" "vmsingle"
 echo ""
 
-# 3. Prometheus CRD 확인
-echo "3. Prometheus Operator CRD 확인..."
-REQUIRED_CRDS=(
-    "servicemonitors.monitoring.coreos.com"
-    "prometheusrules.monitoring.coreos.com"
-    "prometheuses.monitoring.coreos.com"
-    "alertmanagers.monitoring.coreos.com"
-    "podmonitors.monitoring.coreos.com"
-    "probes.monitoring.coreos.com"
-)
-
-for crd in "${REQUIRED_CRDS[@]}"; do
-    if kubectl get crd "$crd" &>/dev/null; then
-        echo -e "${GREEN}✅ $crd${NC}"
-    else
-        echo -e "${RED}❌ $crd가 설치되지 않았습니다.${NC}"
-        echo "   → observers 애플리케이션 배포를 확인하세요."
-        ERRORS=$((ERRORS + 1))
-    fi
-done
-echo ""
-
-# 3. Prometheus Pod 확인
-echo "4. Prometheus Pod 상태 확인..."
-if kubectl get pods -n observers -l app.kubernetes.io/name=prometheus &>/dev/null; then
-    POD_STATUS=$(kubectl get pods -n observers -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
-    POD_READY=$(kubectl get pods -n observers -l app.kubernetes.io/name=prometheus -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null)
-    
-    if [[ "$POD_STATUS" == "Running" && "$POD_READY" == "true" ]]; then
-        echo -e "${GREEN}✅ Prometheus Pod: Running${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Prometheus Pod 상태: $POD_STATUS (Ready: $POD_READY)${NC}"
-        echo "   → 배포 완료를 기다리세요 (2-3분 소요)"
-    fi
-else
-    echo -e "${RED}❌ Prometheus Pod를 찾을 수 없습니다.${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
+# 3. VMAgent Pod 확인
+echo "3. VMAgent Pod 상태 확인..."
+check_pod_ready "app.kubernetes.io/instance=vmagent" "vmagent"
 echo ""
 
 # 4. Grafana Pod 확인
-echo "5. Grafana Pod 상태 확인..."
-if kubectl get pods -n observers -l app.kubernetes.io/name=grafana &>/dev/null; then
-    GRAFANA_STATUS=$(kubectl get pods -n observers -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
-    
-    if [[ "$GRAFANA_STATUS" == "Running" ]]; then
-        echo -e "${GREEN}✅ Grafana Pod: Running${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Grafana Pod 상태: $GRAFANA_STATUS${NC}"
-    fi
-else
-    echo -e "${RED}❌ Grafana Pod를 찾을 수 없습니다.${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
+echo "4. Grafana Pod 상태 확인..."
+check_pod_ready "app.kubernetes.io/instance=grafana" "grafana"
+echo ""
+
+# 5. Loki/Promtail/Blackbox Pod 확인
+echo "5. Loki/Promtail/Blackbox Pod 상태 확인..."
+check_pod_ready "app.kubernetes.io/instance=loki" "loki"
+check_pod_ready "app.kubernetes.io/instance=promtail" "promtail"
+check_pod_ready "app.kubernetes.io/instance=blackbox-exporter" "blackbox-exporter"
 echo ""
 
 # 최종 결과
