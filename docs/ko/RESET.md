@@ -70,7 +70,7 @@ watch -n 5 kubectl get applications -n argocd
 
 **배포 순서** (자동 진행):
 1. Wave -2 (3~5분): observers
-2. Wave -1 (1~2분): observers-probes, ingress-nginx
+2. Wave -1 (1~2분): ingress-nginx
 3. Wave 0~1 (2~3분): cloudflared, vault
 4. Wave 2~3 (1~2분): vso-operator, vso-resources
 5. Wave 4 (2~3분): ghost
@@ -80,7 +80,6 @@ watch -n 5 kubectl get applications -n argocd
 NAME               SYNC STATUS   HEALTH STATUS
 blogstack-root     Synced        Healthy
 observers          Synced        Healthy
-observers-probes   Synced        Healthy
 ingress-nginx      Synced        Healthy
 cloudflared        Synced        Degraded      ⚠️ 정상 (Vault 시크릿 대기)
 vault              Synced        Healthy       (0/1 Sealed 정상)

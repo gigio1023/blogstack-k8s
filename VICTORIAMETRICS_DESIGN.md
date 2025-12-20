@@ -91,7 +91,7 @@ scrape targets
 - blackbox-exporter
   - namespace: observers
   - service: blackbox-exporter
-  - 외부 URL은 config/prod.env의 monitorUrl* 사용
+  - 외부 URL은 vmagent-scrape.yml에서 관리
 
 ## vmagent 스크레이프 설정 예시
 아래는 방향 제시용 예시이며, 실제 값은 배포 후 서비스명과 포트를 확인한다.
