@@ -21,7 +21,7 @@
 - CRD/Operator 0개
 - observers 네임스페이스 유지 (기존 NetworkPolicy와 호환)
 - overlays/prod에서 환경별 값 변경
-- vmagent 스크레이프 설정은 overlay 파일로 관리
+- vmagent 스크레이프 설정은 ConfigMap 리소스로 관리
 
 ## 구성 개요
 - vmsingle: 저장/쿼리 API (8428)
@@ -91,7 +91,7 @@ scrape targets
 - blackbox-exporter
   - namespace: observers
   - service: blackbox-exporter
-  - 외부 URL은 vmagent-scrape.yml에서 관리
+  - 외부 URL은 config/prod.env의 monitorUrl* 사용
 
 ## vmagent 스크레이프 설정 예시
 아래는 방향 제시용 예시이며, 실제 값은 배포 후 서비스명과 포트를 확인한다.
@@ -155,9 +155,8 @@ scrape_configs:
 ```
 
 ## Kustomize 치환 설계
-- vmagent 스크레이프 설정을 ConfigMap으로 분리
-- base는 example.invalid 기준, overlays/prod에서 실제 URL로 교체
-- ConfigMapGenerator + disableNameSuffixHash 적용
+- vmagent 스크레이프 설정을 ConfigMap 리소스로 관리
+- overlays/prod에서 `config/prod.env`의 monitorUrl* 값을 변수로 주입
 
 ## 결정 사항
 - observers 앱 유지, observers-crds/observers-probes 제거

@@ -70,7 +70,7 @@ watch -n 5 kubectl get applications -n argocd
 
 **Deployment Order** (Automated):
 1. Wave -2 (3~5 min): observers
-2. Wave -1 (1~2 min): observers-probes, ingress-nginx
+2. Wave -1 (1~2 min): ingress-nginx
 3. Wave 0~1 (2~3 min): cloudflared, vault
 4. Wave 2~3 (1~2 min): vso-operator, vso-resources
 5. Wave 4 (2~3 min): ghost
@@ -80,7 +80,6 @@ watch -n 5 kubectl get applications -n argocd
 NAME               SYNC STATUS   HEALTH STATUS
 blogstack-root     Synced        Healthy
 observers          Synced        Healthy
-observers-probes   Synced        Healthy
 ingress-nginx      Synced        Healthy
 cloudflared        Synced        Degraded      ⚠️ Normal (Waiting for Vault secrets)
 vault              Synced        Healthy       (0/1 Sealed Normal)

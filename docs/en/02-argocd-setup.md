@@ -5,7 +5,7 @@ Install Argo CD and deploy App-of-Apps pattern for GitOps.
 ## Overview
 
 - Argo CD: Git-based declarative deployment tool
-- Applications: Split into 8 parts for CRD dependency resolution
+- Applications: split by role (monitoring is a single observers app)
 - Expected time: 15 minutes
 
 ## Prerequisites
@@ -105,7 +105,6 @@ Expected output (after 30s):
 NAME               SYNC STATUS   HEALTH STATUS   
 blogstack-root     Synced        Healthy
 observers          Synced        Progressing
-observers-probes   Synced        Progressing
 ingress-nginx      Synced        Progressing
 cloudflared        Synced        Progressing
 vault              Synced        Progressing
@@ -120,8 +119,7 @@ Sync Wave Order (Total 5-10 min):
 
 | Wave | App | Purpose | Time |
 |------|-----|---------|------|
-| `-2` | observers | Prometheus, Grafana, Loki | 3-5m |
-| `-1` | observers-probes | Blackbox Exporter | 30s |
+| `-2` | observers | VictoriaMetrics, Grafana, Loki, Blackbox | 3-5m |
 | `-1` | ingress-nginx | Ingress Controller | 1-2m |
 | `0` | cloudflared | Cloudflare Tunnel | 1m |
 | `1` | vault | HashiCorp Vault | 1-2m |
@@ -141,7 +139,6 @@ kubectl get applications -n argocd
 # NAME               SYNC STATUS   HEALTH STATUS
 # blogstack-root     Synced        Healthy
 # observers          Synced        Healthy
-# observers-probes   Synced        Healthy
 # ingress-nginx      Synced        Healthy
 # cloudflared        Synced        Degraded      ← Normal (waiting for Vault secrets)
 # vault              Synced        Progressing   ← Normal (not initialized)
@@ -157,24 +154,16 @@ Degraded/Progressing: Vault not initialized yet (fixed in next step)
 Verify that the `observers` application has been deployed correctly.
 
 ```bash
-# Verify Prometheus Operator CRDs
-kubectl get crd | grep monitoring.coreos.com
+# Verify VMSingle/Agent Pods
+kubectl get pods -n observers -l app.kubernetes.io/instance=vmsingle
+kubectl get pods -n observers -l app.kubernetes.io/instance=vmagent
 
-# Expected output:
-# prometheuses.monitoring.coreos.com
-# servicemonitors.monitoring.coreos.com
-# probes.monitoring.coreos.com
-# podmonitors.monitoring.coreos.com
-
-# Verify Prometheus Pod
-kubectl get pods -n observers -l app.kubernetes.io/name=prometheus
-
-# Expected output:
-# prometheus-kube-prometheus-stack-prometheus-0   2/2   Running
+# Verify Grafana Pod
+kubectl get pods -n observers -l app.kubernetes.io/name=grafana
 ```
 
 > [!NOTE]
-> The monitoring stack is required for configuring ServiceMonitors in [10-monitoring.md](./10-monitoring.md).
+> See [10-monitoring.md](./10-monitoring.md) for monitoring details.
 
 Pod status:
 ```bash

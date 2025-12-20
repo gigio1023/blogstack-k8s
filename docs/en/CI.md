@@ -24,7 +24,7 @@ Automates manifest build and schema validation
 ### Validation
 
 - Kubernetes resource schema
-- CRDs (Prometheus Operator, VSO, etc.)
+- CRDs (VSO, etc.)
 - Kustomize build errors
 
 ### Local Validation
@@ -73,4 +73,3 @@ Required Secrets:
 
 - Create PRs as Draft first
 - Merge only after CI passes
-

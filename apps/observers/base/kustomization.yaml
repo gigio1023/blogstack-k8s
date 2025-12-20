@@ -3,13 +3,8 @@ kind: Kustomization
 
 namespace: observers
 
-generatorOptions:
-  disableNameSuffixHash: true
-
-configMapGenerator:
-  - name: vmagent-scrape
-    files:
-      - scrape.yml=vmagent-scrape.yml
+resources:
+  - vmagent-scrape-configmap.yaml
 
 helmCharts:
   - name: victoria-metrics-single
@@ -63,6 +58,7 @@ helmCharts:
     releaseName: blackbox-exporter
     namespace: observers
     valuesInline:
+      fullnameOverride: blackbox-exporter
       serviceMonitor:
         enabled: false
   - name: loki

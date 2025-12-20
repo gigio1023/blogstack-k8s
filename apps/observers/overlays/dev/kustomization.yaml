@@ -6,3 +6,34 @@ namespace: observers-dev
 resources:
   - ../../base
   - namespace.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: dev-config
+    envs:
+      - ../../../../config/dev.env
+
+vars:
+  - name: MONITOR_URL_HOME
+    objref:
+      kind: ConfigMap
+      name: dev-config
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.monitorUrlHome
+  - name: MONITOR_URL_SITEMAP
+    objref:
+      kind: ConfigMap
+      name: dev-config
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.monitorUrlSitemap
+  - name: MONITOR_URL_GHOST
+    objref:
+      kind: ConfigMap
+      name: dev-config
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.monitorUrlGhost

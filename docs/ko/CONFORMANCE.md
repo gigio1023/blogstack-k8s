@@ -71,7 +71,7 @@ blogstack-k8s/
 
 핵심 주장
 - Cloudflare Zero Trust, OCI Object Storage, SMTP 필요
-- 기본 설정은 `config/prod.env`, 모니터링 URL은 `apps/observers/overlays/prod/vmagent-scrape.yml`에서 관리
+- 모든 공개 설정은 `config/prod.env`에서 중앙 관리
 
 빠른 확인
 ```bash

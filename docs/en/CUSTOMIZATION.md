@@ -203,7 +203,6 @@ monitorUrlGhost=https://yourdomain.com/ghost/
 - ✅ **Modify this file**: `config/prod.env`
 - ❌ **Do not need to modify**:
   - `apps/ghost/base/ingress.yaml` (Auto-injected)
-  - `apps/observers/base/probe.yaml` (Auto-injected)
   - All other Kubernetes resources
 
 ## Step 2: Change Git Repository URL
@@ -277,10 +276,10 @@ kubectl get ingress -n blog ghost -o yaml | grep host
 # Output: host: yourdomain.com (domain value from config/prod.env)
 ```
 
-### 2. Blackbox Probe Targets
+### 2. Blackbox Targets
 
 ```bash
-kubectl get probe -n observers blog-external -o yaml | grep -A3 static:
+kubectl get configmap -n observers vmagent-scrape -o yaml | grep -A5 blackbox
 # Output: monitorUrl* values from config/prod.env
 ```
 
@@ -356,14 +355,19 @@ git push
 kubectl patch app ghost -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
 ```
 
-### Blackbox Probe checks example.invalid
+### Blackbox Targets check example.invalid
 
-**Cause**: observers app not yet synced
+**Cause**: monitoring URLs not updated in `config/prod.env`, or observers app not yet synced
 
 **Fix**:
 ```bash
-kubectl delete pod -n argocd -l app.kubernetes.io/name=argocd-repo-server
-# Auto-syncs when Argo CD restarts
+# After modifying config/prod.env
+git add config/prod.env
+git commit -m "chore(config): update monitoring urls"
+git push
+
+# Optional hard refresh
+kubectl patch app observers -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
 ```
 
 ## Additional Resources
