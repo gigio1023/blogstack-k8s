@@ -2,7 +2,8 @@
 # Deployment order controlled by sync-wave annotations
 #
 # Architecture:
-# - observers: Prometheus/Grafana/Loki stack (installs CRDs)
+# - observers-crds: Prometheus Operator CRDs (installs first)
+# - observers: Prometheus/Grafana/Loki stack + Alloy (uses CRDs)
 # - observers-probes: Blackbox Exporter probes (uses Probe CRD)
 # - ingress-nginx: Ingress controller (uses ServiceMonitor CRD)
 # - cloudflared: Cloudflare Tunnel for ingress
@@ -11,6 +12,32 @@
 # - vso-resources: Vault connection and secret mappings (uses VSO CRDs)
 # - ghost: Ghost CMS + MySQL (uses VaultStaticSecret CRD)
 
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observers-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: blog
+  source:
+    repoURL: https://github.com/gigio1023/blogstack-k8s
+    path: apps/observers-crds/overlays/prod
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observers
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - SkipDryRunOnMissingResource=true
+      - ServerSideApply=true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
