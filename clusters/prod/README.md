@@ -31,8 +31,7 @@ spec:
 
 | Wave | Application | Path | 설명 |
 |------|------------|------|------|
-| -2 | observers | apps/observers/overlays/prod | Prometheus, Grafana, Loki (CRD 설치) |
-| -1 | observers-probes | apps/observers-probes/overlays/prod | Blackbox Exporter Probe |
+| -2 | observers | apps/observers/overlays/prod | VictoriaMetrics, Grafana, Loki, Blackbox |
 | -1 | ingress-nginx | apps/ingress-nginx/overlays/prod | Ingress Controller + 메트릭 |
 | 0 | cloudflared | apps/cloudflared/overlays/prod | Cloudflare Tunnel |
 | 1 | vault | security/vault | HashiCorp Vault (Raft) |
@@ -112,4 +111,3 @@ clusters/
 
 - [Argo CD App-of-Apps 패턴](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/)
 - [Sync Waves](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/)
-

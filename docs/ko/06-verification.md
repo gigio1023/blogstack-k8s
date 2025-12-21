@@ -42,19 +42,26 @@ curl -I https://yourdomain.com/ghost/
 
 ## 모니터링 접근 (선택)
 
-### Prometheus
+### VictoriaMetrics (vmagent)
 
 ```bash
-kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090 &
-# http://localhost:9090/targets
+kubectl port-forward -n observers svc/vmagent 8429:8429 &
+# http://localhost:8429/targets
+```
+
+### VictoriaMetrics (vmsingle)
+
+```bash
+kubectl port-forward -n observers svc/vmsingle 8428:8428 &
+# http://localhost:8428/vmui
 ```
 
 ### Grafana
 
 ```bash
-kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80 &
+kubectl port-forward -n observers svc/grafana 3000:80 &
 # http://localhost:3000
-# admin / prom-operator
+# admin / admin
 ```
 
 ## 백업 테스트 (선택)

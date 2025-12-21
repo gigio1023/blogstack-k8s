@@ -150,46 +150,42 @@ kubectl delete application blogstack-root -n argocd
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
-## Monitoring / CRD
+## Monitoring
 
-### ServiceMonitor/Probe failures due to missing Prometheus Operator/Grafana CRDs
-
-```bash
-kubectl get crd \
-  servicemonitors.monitoring.coreos.com \
-  prometheusrules.monitoring.coreos.com \
-  prometheuses.monitoring.coreos.com \
-  alertmanagers.monitoring.coreos.com \
-  podmonitors.monitoring.coreos.com \
-  probes.monitoring.coreos.com
-# If any NotFound appears, CRDs are missing.
-```
-
-Remediation:
-- Ensure the `observers-crds` Application exists and is Synced/Healthy.
-  ```bash
-  kubectl get application observers-crds -n argocd
-  # Apply SSA if missing
-  kubectl patch application observers-crds -n argocd \
-    -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
-    --type merge
-  kubectl patch application observers-crds -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
-  ```
-- After CRDs are installed, sync the `observers` Application.
-  ```bash
-  kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
-  ```
-- CRD installation is disabled in `observers` Helm values (includeCRDs: false, crds.enabled: false), so the CRD app must succeed first.
-
-### ingress-nginx ServiceMonitor ID conflict
+### Empty vmagent targets
 
 ```bash
-# Helm already creates the ServiceMonitor via values, so the overlay manifest must be removed.
-# Symptom: "namespace transformation produces ID conflict"
+# Check vmagent config
+kubectl get configmap -n observers vmagent-scrape -o yaml
 
-# Fix: remove apps/ingress-nginx/overlays/prod/servicemonitor.yaml
-#      and drop it from the kustomization resources list
+# Check vmagent logs
+kubectl logs -n observers deploy/vmagent
 ```
+
+Target services:
+```bash
+kubectl get svc -n blog mysql-exporter
+kubectl get svc -n ingress-nginx
+kubectl get svc -n cloudflared
+kubectl get svc -n vault
+```
+
+### Grafana shows no data
+
+1. Verify the datasource: Configuration → Data Sources → VictoriaMetrics → Save & Test
+2. Check vmsingle access:
+   ```bash
+   kubectl port-forward -n observers svc/vmsingle 8428:8428 &
+   # http://localhost:8428/vmui
+   ```
+
+### Blackbox checks failing
+
+1. Confirm blackbox targets in vmagent config
+2. Check blackbox-exporter status:
+   ```bash
+   kubectl get pods -n observers -l app.kubernetes.io/instance=blackbox-exporter
+   ```
 
 ## VSO
 

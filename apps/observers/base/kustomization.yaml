@@ -3,36 +3,69 @@ kind: Kustomization
 
 namespace: observers
 
-# Note: probe.yaml moved to apps/observers-probes
-# This separation ensures CRDs are installed before resources that use them
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: vmagent-scrape
+    files:
+      - scrape.yml=vmagent-scrape.yml
 
 helmCharts:
-  - name: kube-prometheus-stack
-    repo: https://prometheus-community.github.io/helm-charts
-    version: 79.0.0
-    releaseName: kube-prometheus-stack
+  - name: victoria-metrics-single
+    repo: https://victoriametrics.github.io/helm-charts
+    version: 0.27.0
+    releaseName: vmsingle
     namespace: observers
-    includeCRDs: false
     valuesInline:
-      crds:
-        enabled: false
-      grafana:
+      server:
+        fullnameOverride: vmsingle
+        retentionPeriod: "14d"
+        persistentVolume:
+          enabled: true
+          size: 10Gi
+  - name: victoria-metrics-agent
+    repo: https://victoriametrics.github.io/helm-charts
+    version: 0.28.0
+    releaseName: vmagent
+    namespace: observers
+    valuesInline:
+      fullnameOverride: vmagent
+      service:
         enabled: true
-        adminPassword: "admin"
-      prometheus:
-        prometheusSpec:
-          serviceMonitorSelectorNilUsesHelmValues: false
-          probeSelectorNilUsesHelmValues: false
-          serviceMonitorSelector: {}
-          serviceMonitorNamespaceSelector: {}
+      configMap: vmagent-scrape
+      remoteWrite:
+        - url: http://vmsingle.observers.svc.cluster.local:8428/api/v1/write
+  - name: grafana
+    repo: https://grafana.github.io/helm-charts
+    version: 10.4.0
+    releaseName: grafana
+    namespace: observers
+    valuesInline:
+      fullnameOverride: grafana
+      adminPassword: "admin"
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+            - name: VictoriaMetrics
+              type: prometheus
+              url: http://vmsingle.observers.svc.cluster.local:8428
+              access: proxy
+              isDefault: true
+            - name: Loki
+              type: loki
+              url: http://loki.observers.svc.cluster.local:3100
+              access: proxy
   - name: prometheus-blackbox-exporter
     repo: https://prometheus-community.github.io/helm-charts
     version: 8.1.0
     releaseName: blackbox-exporter
     namespace: observers
     valuesInline:
+      fullnameOverride: blackbox-exporter
       serviceMonitor:
-        enabled: false  # We'll use Probe CRD for multi-target
+        enabled: false
   - name: loki
     repo: https://grafana.github.io/helm-charts
     version: 5.39.0
@@ -50,17 +83,3 @@ helmCharts:
       config:
         clients:
           - url: http://loki.observers.svc.cluster.local:3100/loki/api/v1/push
-  - name: alloy
-    repo: https://grafana.github.io/helm-charts
-    version: 1.4.0
-    releaseName: alloy
-    namespace: observers
-    valuesInline:
-      crds:
-        create: false
-      alloy:
-        configMap:
-          content: |
-            logging {
-              level = "info"
-            }

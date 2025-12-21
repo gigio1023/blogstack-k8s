@@ -16,9 +16,7 @@ helmCharts:
         metrics:
           enabled: true
           serviceMonitor:
-            enabled: true
-            additionalLabels:
-              release: kube-prometheus-stack
+            enabled: false
         config:
           use-forwarded-headers: "true"
           enable-real-ip: "true"
@@ -27,4 +25,3 @@ helmCharts:
           proxy-read-timeout: "600"
           proxy-send-timeout: "600"
           proxy-body-size: "50m"
-

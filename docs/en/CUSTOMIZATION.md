@@ -176,9 +176,9 @@ Now proceed to the next step:
 
 ## Design Principles
 
-**Centralized Configuration**: All personalization settings are managed in one place: `config/prod.env`. No domains or personal information are hardcoded in Kubernetes resources.
+**Centralized Configuration**: Most personalization settings live in `config/prod.env`. Monitoring (Blackbox) URLs are managed in `apps/observers/overlays/prod/vmagent-scrape.yml`.
 
-**Reusable Infrastructure**: The code in this repository is designed so anyone can fork it and modify only `config/prod.env` to use it immediately.
+**Reusable Infrastructure**: The code in this repository is designed so anyone can fork it and modify `config/prod.env`, plus `vmagent-scrape.yml` when needed, to use it immediately.
 
 ## Step 1: Modify config/prod.env
 
@@ -192,19 +192,27 @@ email=admin@yourdomain.com               # Admin email
 timezone=Asia/Seoul                      # Timezone (Changeable)
 alertEmail=admin@yourdomain.com          # Alert recipient email
 
-# Monitoring URLs (Auto-adjusted if domain is changed)
-monitorUrlHome=https://yourdomain.com/
-monitorUrlSitemap=https://yourdomain.com/sitemap.xml
-monitorUrlGhost=https://yourdomain.com/ghost/
 ```
 
-### Important: You only need to modify this file!
+### Important: By default you only need to modify this file!
 
 - ✅ **Modify this file**: `config/prod.env`
 - ❌ **Do not need to modify**:
   - `apps/ghost/base/ingress.yaml` (Auto-injected)
-  - `apps/observers/base/probe.yaml` (Auto-injected)
   - All other Kubernetes resources
+
+### (Optional) Step 1.5: Update Blackbox target URLs
+
+Blackbox targets are managed in `apps/observers/overlays/prod/vmagent-scrape.yml`.
+
+```yaml
+  - job_name: blackbox
+    static_configs:
+      - targets:
+          - https://yourdomain.com/
+          - https://yourdomain.com/sitemap.xml
+          - https://yourdomain.com/ghost/
+```
 
 ## Step 2: Change Git Repository URL
 
@@ -277,11 +285,11 @@ kubectl get ingress -n blog ghost -o yaml | grep host
 # Output: host: yourdomain.com (domain value from config/prod.env)
 ```
 
-### 2. Blackbox Probe Targets
+### 2. Blackbox Targets
 
 ```bash
-kubectl get probe -n observers blog-external -o yaml | grep -A3 static:
-# Output: monitorUrl* values from config/prod.env
+kubectl get configmap -n observers vmagent-scrape -o yaml | grep -A5 blackbox
+# Output: targets from overlays/prod/vmagent-scrape.yml
 ```
 
 ### 3. Ghost URL Environment Variable
@@ -321,6 +329,7 @@ mkdir -p clusters/dev
 `sunghogigio.com` in the documentation and guides is an **example**. When deploying for real:
 
 - ✅ Use values from `config/prod.env`
+- ✅ Update Blackbox URLs in `apps/observers/overlays/prod/vmagent-scrape.yml`
 - ✅ Enter actual domain in Vault secrets
 - ✅ Configure actual domain in Cloudflare
 
@@ -356,14 +365,19 @@ git push
 kubectl patch app ghost -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
 ```
 
-### Blackbox Probe checks example.invalid
+### Blackbox Targets check example.invalid
 
-**Cause**: observers app not yet synced
+**Cause**: monitoring URLs not updated in `apps/observers/overlays/prod/vmagent-scrape.yml`, or observers app not yet synced
 
 **Fix**:
 ```bash
-kubectl delete pod -n argocd -l app.kubernetes.io/name=argocd-repo-server
-# Auto-syncs when Argo CD restarts
+# After modifying the overlay file
+git add apps/observers/overlays/prod/vmagent-scrape.yml
+git commit -m "chore(monitoring): update blackbox targets"
+git push
+
+# Optional hard refresh
+kubectl patch app observers -n argocd -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' --type=merge
 ```
 
 ## Additional Resources

@@ -5,7 +5,6 @@ namespace: vault
 
 resources:
   - namespace.yaml
-  - servicemonitor.yaml
   - networkpolicy.yaml
 
 helmCharts:
@@ -28,4 +27,3 @@ helmCharts:
           size: 5Gi
         ingress:
           enabled: false
-

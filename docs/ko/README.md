@@ -22,7 +22,7 @@ OCI 무료 ARM VM + k3s + Argo CD + Vault + Ghost
 - [07-smtp-setup.md](./07-smtp-setup.md) - SMTP 이메일 설정 (필수)
 - [08-operations.md](./08-operations.md) - 운영 및 유지보수
 - [09-troubleshooting.md](./09-troubleshooting.md) - 트러블슈팅
-- [10-monitoring.md](./10-monitoring.md) - 모니터링 구성 (Prometheus/Grafana)
+- [10-monitoring.md](./10-monitoring.md) - 모니터링 구성 (VictoriaMetrics/Grafana)
 
 ---
 
@@ -49,4 +49,4 @@ OCI 무료 ARM VM + k3s + Argo CD + Vault + Ghost
 - 시크릿: Vault + VSO
 - 인그레스: ingress-nginx + Cloudflare Tunnel
 - 애플리케이션: Ghost 5.x + MySQL 8.0
-- 관측성: Prometheus + Grafana + Loki
+- 관측성: VictoriaMetrics + Grafana + Loki

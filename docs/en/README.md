@@ -22,7 +22,7 @@ OCI Free ARM VM + k3s + Argo CD + Vault + Ghost
 - [07-smtp-setup.md](./07-smtp-setup.md) - SMTP email setup (required)
 - [08-operations.md](./08-operations.md) - Operations & maintenance
 - [09-troubleshooting.md](./09-troubleshooting.md) - Troubleshooting
-- [10-monitoring.md](./10-monitoring.md) - Monitoring Setup (Prometheus/Grafana)
+- [10-monitoring.md](./10-monitoring.md) - Monitoring Setup (VictoriaMetrics/Grafana)
 
 ---
 
@@ -49,5 +49,4 @@ OCI Free ARM VM + k3s + Argo CD + Vault + Ghost
 - Secrets: Vault + VSO
 - Ingress: ingress-nginx + Cloudflare Tunnel
 - Application: Ghost 5.x + MySQL 8.0
-- Observability: Prometheus + Grafana + Loki
-
+- Observability: VictoriaMetrics + Grafana + Loki

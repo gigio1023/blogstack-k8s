@@ -5,6 +5,4 @@ namespace: cloudflared-dev
 
 resources:
   - ../../base
-  - servicemonitor.yaml
   - namespace.yaml
-

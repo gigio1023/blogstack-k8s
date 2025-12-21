@@ -45,7 +45,7 @@ blogstack-k8s/
 - 모니터링: `/v1/sys/metrics?format=prometheus` 스크레이프
 
 ### A.6 관측/알림(요약)
-- kube-prometheus-stack + Loki + Blackbox
+- VictoriaMetrics(vmsingle/vmagent) + Grafana + Loki + Blackbox
 - 타깃: ingress 10254, cloudflared 2000, vault sys/metrics, 외부 SLIs(`/`, `/sitemap.xml`, `/ghost`)
 
 ### A.7 선택 기능
@@ -71,7 +71,7 @@ blogstack-k8s/
 
 핵심 주장
 - Cloudflare Zero Trust, OCI Object Storage, SMTP 필요
-- 모든 공개 설정은 `config/prod.env`에서 중앙 관리
+- 공개 설정은 `config/prod.env` 중심이며, Blackbox 대상은 `apps/observers/overlays/prod/vmagent-scrape.yml`에서 관리
 
 빠른 확인
 ```bash
@@ -152,16 +152,16 @@ kubectl get pvc -n blog | egrep 'ghost-content|data-mysql'
 
 ### B.5 관측/알림
 - 문서: `docs/08-operations.md`
-- 구현: `apps/observers/**`, `security/vault/servicemonitor.yaml`, `apps/ingress-nginx/overlays/prod/servicemonitor.yaml`, `apps/cloudflared/overlays/prod/servicemonitor.yaml`
+- 구현: `apps/observers/**`
 
 핵심 주장
-- Grafana(admin/admin), Prometheus Targets: ingress 10254, cloudflared 2000, vault sys/metrics, Blackbox Probe 외부 SLI
+- Grafana(admin/admin), vmagent Targets: ingress 10254, cloudflared 2000, vault sys/metrics, Blackbox 외부 SLI (overlays/prod/vmagent-scrape.yml)
 
 빠른 확인
 ```bash
-kubectl port-forward -n observers svc/kube-prometheus-stack-grafana 3000:80 &
-kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090 &
-kubectl get probe -n observers blog-external -o yaml | grep static:
+kubectl port-forward -n observers svc/grafana 3000:80 &
+kubectl port-forward -n observers svc/vmagent 8429:8429 &
+kubectl get configmap -n observers vmagent-scrape -o yaml | grep -A3 targets:
 ```
 
 ---
@@ -200,9 +200,9 @@ kubectl get probe -n observers blog-external -o yaml | grep static:
 ### 핵심 공식 문서
 - **Cloudflare Tunnel**: [DNS records](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/routing-to-tunnel/dns/), [Tunnel metrics](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/monitor-tunnels/metrics/), [Create tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/create-local-tunnel/)
 - **Ghost**: [Reverse Proxying HTTPS](https://docs.ghost.org/faq/proxying-https-infinite-loops), [Comments](https://ghost.org/help/commenting/), [Official Docs](https://ghost.org/docs/)
-- **HashiCorp Vault**: [Helm chart](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/helm), [Vault Secrets Operator](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/vso/sources/vault), [Agent Injector](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/injector), [Raft Deployment Guide](https://developer.hashicorp.com/vault/tutorials/day-one-raft/raft-deployment-guide), [Metrics API](https://developer.hashicorp.com/vault/api-docs/system/metrics), [Monitor with Prometheus](https://developer.hashicorp.com/vault/tutorials/archive/monitor-telemetry-grafana-prometheus)
+- **HashiCorp Vault**: [Helm chart](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/helm), [Vault Secrets Operator](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/vso/sources/vault), [Agent Injector](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/injector), [Raft Deployment Guide](https://developer.hashicorp.com/vault/tutorials/day-one-raft/raft-deployment-guide), [Metrics API](https://developer.hashicorp.com/vault/api-docs/system/metrics)
 - **Kubernetes**: [k3s Storage](https://docs.k3s.io/storage), [Ingress-NGINX Monitoring](https://kubernetes.github.io/ingress-nginx/user-guide/monitoring/), [Canary Deployments](https://kubernetes.github.io/ingress-nginx/examples/canary/)
-- **Monitoring**: [Blackbox Exporter](https://github.com/prometheus/blackbox_exporter), [Grafana Contact Points](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/contact-points/)
+- **Monitoring**: [VictoriaMetrics](https://docs.victoriametrics.com/), [Blackbox Exporter](https://github.com/prometheus/blackbox_exporter), [Grafana Contact Points](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/contact-points/)
 - **Oracle Cloud**: [S3 Compatible API](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/s3compatibleapi.htm)
 - **Alternative Secret Tools**: [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets), [SOPS](https://github.com/getsops/sops), [Infisical](https://github.com/Infisical/infisical)
 
@@ -360,15 +360,15 @@ kubectl exec -n vault vault-0 -- vault operator unseal <KEY3>
 - Ingress-NGINX: `:10254/metrics` 응답 확인
 - Cloudflared: `:2000/metrics` 응답 확인
 - Vault: `/v1/sys/metrics?format=prometheus` 권한 확인
-- Blackbox: Probe 타깃 설정 확인
+- Blackbox: vmagent 설정의 타깃 확인
 
 ```bash
-# ServiceMonitor 확인
-kubectl get servicemonitor -A
+# vmagent Targets (port-forward 후 확인)
+kubectl port-forward -n observers svc/vmagent 8429:8429
+# http://localhost:8429/targets
 
-# Prometheus Targets (port-forward 후 확인)
-kubectl port-forward -n observers svc/kube-prometheus-stack-prometheus 9090:9090
-# http://localhost:9090/targets
+# vmagent 설정 확인
+kubectl get configmap -n observers vmagent-scrape -o yaml
 ```
 
 ### F.5 MySQL 연결 실패
@@ -398,6 +398,3 @@ vault kv get kv/blog/prod/mysql
 # MySQL 재시작
 kubectl rollout restart statefulset/mysql -n blog
 ```
-
-
-

@@ -23,7 +23,7 @@
 
 ### 검증 항목
 - Kubernetes 리소스 스키마 유효성
-- CRD (Prometheus Operator, VSO 등) 스키마
+- CRD (VSO 등) 스키마
 - Kustomize 빌드 오류 여부
 
 ### 로컬 검증

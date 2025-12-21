@@ -150,46 +150,42 @@ kubectl delete application blogstack-root -n argocd
 kubectl apply -f ./iac/argocd/root-app.yaml
 ```
 
-## 모니터링/CRD
+## 모니터링
 
-### Prometheus Operator/Grafana CRD 미설치로 ServiceMonitor/Probe 실패
-
-```bash
-kubectl get crd \
-  servicemonitors.monitoring.coreos.com \
-  prometheusrules.monitoring.coreos.com \
-  prometheuses.monitoring.coreos.com \
-  alertmanagers.monitoring.coreos.com \
-  podmonitors.monitoring.coreos.com \
-  probes.monitoring.coreos.com
-# NotFound가 하나라도 있으면 CRD가 설치되지 않은 상태
-```
-
-조치:
-- `observers-crds` 애플리케이션이 존재하는지 확인하고, `Synced/Healthy` 상태인지 확인
-  ```bash
-  kubectl get application observers-crds -n argocd
-  # 필요 시 SSA 적용
-  kubectl patch application observers-crds -n argocd \
-    -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true","PruneLast=true","SkipDryRunOnMissingResource=true","ServerSideApply=true"]}}}' \
-    --type merge
-  kubectl patch application observers-crds -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
-  ```
-- CRD 설치가 완료된 것을 확인한 뒤 `observers` 애플리케이션을 동기화
-  ```bash
-  kubectl patch application observers -n argocd -p '{"operation":{"sync":{"revision":"HEAD"}}}' --type merge
-  ```
-- `kube-prometheus-stack` 값에서 CRD 설치를 비활성화(includeCRDs: false, crds.enabled: false)했으므로 CRD 앱이 먼저 성공해야 합니다.
-
-### ingress-nginx ServiceMonitor ID 충돌
+### vmagent Targets가 비어 있음
 
 ```bash
-# Helm 값에서 이미 ServiceMonitor를 생성하므로 오버레이 매니페스트를 제거해야 함
-# 증상: "namespace transformation produces ID conflict" 메시지
+# vmagent 설정 확인
+kubectl get configmap -n observers vmagent-scrape -o yaml
 
-# 해결: apps/ingress-nginx/overlays/prod/servicemonitor.yaml 제거
-#       kustomization.yaml 리소스 목록에서 servicemonitor.yaml 삭제
+# vmagent 로그 확인
+kubectl logs -n observers deploy/vmagent
 ```
+
+대상 서비스 확인:
+```bash
+kubectl get svc -n blog mysql-exporter
+kubectl get svc -n ingress-nginx
+kubectl get svc -n cloudflared
+kubectl get svc -n vault
+```
+
+### Grafana 데이터 없음
+
+1. 데이터소스 확인: Configuration → Data Sources → VictoriaMetrics → Save & Test
+2. vmsingle 접근 확인:
+   ```bash
+   kubectl port-forward -n observers svc/vmsingle 8428:8428 &
+   # http://localhost:8428/vmui
+   ```
+
+### Blackbox 응답 실패
+
+1. vmagent 설정의 blackbox targets 확인
+2. blackbox-exporter 상태 확인:
+   ```bash
+   kubectl get pods -n observers -l app.kubernetes.io/instance=blackbox-exporter
+   ```
 
 ## VSO
 
