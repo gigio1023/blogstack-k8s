@@ -15,12 +15,7 @@
 - `timezone`: 시간대 (예: Asia/Seoul)
 - `alertEmail`: 알림 수신 이메일
 
-**모니터링 URL (Blackbox Exporter용):**
-- `monitorUrlHome`: 홈페이지 URL (예: https://yourdomain.com/)
-- `monitorUrlSitemap`: Sitemap URL (예: https://yourdomain.com/sitemap.xml)
-- `monitorUrlGhost`: Admin URL (예: https://yourdomain.com/ghost/)
-
-> **주의**: 도메인만 변경하면 나머지 URL들이 자동으로 맞춰집니다.
+모니터링(Blackbox) URL은 `apps/observers/overlays/prod/vmagent-scrape.yml`에서 관리합니다.
 
 ### 사용 방식
 
@@ -71,4 +66,3 @@ replacements:
 - OCI Object Storage 키
 
 Vault 시크릿 경로는 `security/vault/secrets-guide.md` 참조
-

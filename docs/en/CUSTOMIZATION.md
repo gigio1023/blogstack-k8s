@@ -176,9 +176,9 @@ Now proceed to the next step:
 
 ## Design Principles
 
-**Centralized Configuration**: All personalization settings are managed in one place: `config/prod.env`. No domains or personal information are hardcoded in Kubernetes resources.
+**Centralized Configuration**: Most personalization settings live in `config/prod.env`. Monitoring (Blackbox) URLs are managed in `apps/observers/overlays/prod/vmagent-scrape.yml`.
 
-**Reusable Infrastructure**: The code in this repository is designed so anyone can fork it and modify only `config/prod.env` to use it immediately.
+**Reusable Infrastructure**: The code in this repository is designed so anyone can fork it and modify `config/prod.env`, plus `vmagent-scrape.yml` when needed, to use it immediately.
 
 ## Step 1: Modify config/prod.env
 
@@ -192,18 +192,27 @@ email=admin@yourdomain.com               # Admin email
 timezone=Asia/Seoul                      # Timezone (Changeable)
 alertEmail=admin@yourdomain.com          # Alert recipient email
 
-# Monitoring URLs (Auto-adjusted if domain is changed)
-monitorUrlHome=https://yourdomain.com/
-monitorUrlSitemap=https://yourdomain.com/sitemap.xml
-monitorUrlGhost=https://yourdomain.com/ghost/
 ```
 
-### Important: You only need to modify this file!
+### Important: By default you only need to modify this file!
 
 - ✅ **Modify this file**: `config/prod.env`
 - ❌ **Do not need to modify**:
   - `apps/ghost/base/ingress.yaml` (Auto-injected)
   - All other Kubernetes resources
+
+### (Optional) Step 1.5: Update Blackbox target URLs
+
+Blackbox targets are managed in `apps/observers/overlays/prod/vmagent-scrape.yml`.
+
+```yaml
+  - job_name: blackbox
+    static_configs:
+      - targets:
+          - https://yourdomain.com/
+          - https://yourdomain.com/sitemap.xml
+          - https://yourdomain.com/ghost/
+```
 
 ## Step 2: Change Git Repository URL
 
@@ -280,7 +289,7 @@ kubectl get ingress -n blog ghost -o yaml | grep host
 
 ```bash
 kubectl get configmap -n observers vmagent-scrape -o yaml | grep -A5 blackbox
-# Output: monitorUrl* values from config/prod.env
+# Output: targets from overlays/prod/vmagent-scrape.yml
 ```
 
 ### 3. Ghost URL Environment Variable
@@ -320,6 +329,7 @@ mkdir -p clusters/dev
 `sunghogigio.com` in the documentation and guides is an **example**. When deploying for real:
 
 - ✅ Use values from `config/prod.env`
+- ✅ Update Blackbox URLs in `apps/observers/overlays/prod/vmagent-scrape.yml`
 - ✅ Enter actual domain in Vault secrets
 - ✅ Configure actual domain in Cloudflare
 

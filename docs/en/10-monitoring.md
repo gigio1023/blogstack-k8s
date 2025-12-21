@@ -68,8 +68,8 @@ Related file:
 
 vmagent reads the `scrape.yml` from the `vmagent-scrape` ConfigMap.
 
-- Base config: `apps/observers/base/vmagent-scrape-configmap.yaml`
-- prod values: injected from `config/prod.env`
+- Base config: `apps/observers/base/vmagent-scrape.yml`
+- prod values: replaced by `apps/observers/overlays/prod/vmagent-scrape.yml`
 
 Targets managed in the scrape config:
 - MySQL Exporter

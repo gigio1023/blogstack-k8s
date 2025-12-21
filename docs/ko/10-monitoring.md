@@ -70,8 +70,8 @@ bash scripts/check-monitoring-prerequisites.sh
 
 vmagent는 ConfigMap의 `scrape.yml`을 사용합니다.
 
-- 기본값: `apps/observers/base/vmagent-scrape-configmap.yaml`
-- 프로덕션 값: `config/prod.env`의 monitorUrl* 값으로 주입
+- 기본값: `apps/observers/base/vmagent-scrape.yml`
+- 프로덕션 값: `apps/observers/overlays/prod/vmagent-scrape.yml`로 교체
 
 `vmagent-scrape` ConfigMap에서 다음 타깃을 관리합니다:
 - MySQL Exporter

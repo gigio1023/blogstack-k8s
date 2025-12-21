@@ -158,7 +158,7 @@ kubectl get pvc -n blog | egrep 'ghost-content|data-mysql'
 - **Impl**: `apps/observers/**`
 
 **Key Assertions**:
-- Grafana (admin/admin), vmagent Targets: ingress 10254, cloudflared 2000, vault sys/metrics, Blackbox external SLI
+- Grafana (admin/admin), vmagent Targets: ingress 10254, cloudflared 2000, vault sys/metrics, Blackbox external SLI (overlays/prod/vmagent-scrape.yml)
 
 **Quick Check**:
 ```bash

@@ -176,9 +176,9 @@ EOF
 
 ## 설계 원칙
 
-**중앙화된 설정**: 모든 개인화 설정은 `config/prod.env` 한 곳에서 관리합니다. Kubernetes 리소스에는 도메인이나 개인 정보가 하드코딩되지 않습니다.
+**중앙화된 설정**: 대부분의 개인화 설정은 `config/prod.env` 한 곳에서 관리합니다. 모니터링(Blackbox) URL은 `apps/observers/overlays/prod/vmagent-scrape.yml`에서 관리합니다.
 
-**재사용 가능한 인프라**: 이 리포지토리의 코드는 누구나 fork해서 `config/prod.env`만 수정하면 바로 사용할 수 있습니다.
+**재사용 가능한 인프라**: 이 리포지토리의 코드는 누구나 fork해서 `config/prod.env`와 필요한 경우 `vmagent-scrape.yml`만 수정하면 바로 사용할 수 있습니다.
 
 ## 1단계: config/prod.env 수정
 
@@ -192,18 +192,27 @@ email=admin@yourdomain.com               # 관리자 이메일
 timezone=Asia/Seoul                      # 시간대 (변경 가능)
 alertEmail=admin@yourdomain.com          # 알림 수신 이메일
 
-# 모니터링 URL (도메인만 변경하면 자동 맞춤)
-monitorUrlHome=https://yourdomain.com/
-monitorUrlSitemap=https://yourdomain.com/sitemap.xml
-monitorUrlGhost=https://yourdomain.com/ghost/
 ```
 
-### 중요: 이 파일만 수정하면 됩니다!
+### 중요: 기본은 이 파일만 수정하면 됩니다!
 
 - ✅ **이 파일 수정**: `config/prod.env`
 - ❌ **수정하지 않아도 됨**:
   - `apps/ghost/base/ingress.yaml` (자동 주입)
   - 기타 모든 Kubernetes 리소스
+
+### (선택) 1.5단계: Blackbox 대상 URL 수정
+
+Blackbox 대상 URL은 `apps/observers/overlays/prod/vmagent-scrape.yml`에서 관리합니다.
+
+```yaml
+  - job_name: blackbox
+    static_configs:
+      - targets:
+          - https://yourdomain.com/
+          - https://yourdomain.com/sitemap.xml
+          - https://yourdomain.com/ghost/
+```
 
 ## 2단계: Git Repository URL 변경
 
@@ -280,7 +289,7 @@ kubectl get ingress -n blog ghost -o yaml | grep host
 
 ```bash
 kubectl get configmap -n observers vmagent-scrape -o yaml | grep -A5 blackbox
-# 출력: config/prod.env의 monitorUrl* 값들
+# 출력: overlays/prod/vmagent-scrape.yml의 targets 값들
 ```
 
 ### 3. Ghost URL 환경변수
@@ -320,6 +329,7 @@ mkdir -p clusters/dev
 문서와 가이드에서 `sunghogigio.com`은 **예시**입니다. 실제 구축 시에는:
 
 - ✅ `config/prod.env`의 값 사용
+- ✅ `apps/observers/overlays/prod/vmagent-scrape.yml`의 Blackbox URL 수정
 - ✅ Vault 시크릿에 실제 도메인 입력
 - ✅ Cloudflare에서 실제 도메인 설정
 
