@@ -3,8 +3,13 @@ kind: Kustomization
 
 namespace: observers
 
-resources:
-  - vmagent-scrape-configmap.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: vmagent-scrape
+    files:
+      - scrape.yml=vmagent-scrape.yml
 
 helmCharts:
   - name: victoria-metrics-single

@@ -11,29 +11,7 @@ generatorOptions:
   disableNameSuffixHash: true
 
 configMapGenerator:
-  - name: prod-config
-    envs:
-      - ../../../../config/prod.env
-
-vars:
-  - name: MONITOR_URL_HOME
-    objref:
-      kind: ConfigMap
-      name: prod-config
-      apiVersion: v1
-    fieldref:
-      fieldpath: data.monitorUrlHome
-  - name: MONITOR_URL_SITEMAP
-    objref:
-      kind: ConfigMap
-      name: prod-config
-      apiVersion: v1
-    fieldref:
-      fieldpath: data.monitorUrlSitemap
-  - name: MONITOR_URL_GHOST
-    objref:
-      kind: ConfigMap
-      name: prod-config
-      apiVersion: v1
-    fieldref:
-      fieldpath: data.monitorUrlGhost
+  - name: vmagent-scrape
+    behavior: replace
+    files:
+      - scrape.yml=vmagent-scrape.yml
