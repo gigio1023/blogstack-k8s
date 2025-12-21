@@ -367,13 +367,13 @@ kubectl patch app ghost -n argocd -p '{"metadata":{"annotations":{"argocd.argopr
 
 ### Blackbox Targets check example.invalid
 
-**Cause**: monitoring URLs not updated in `config/prod.env`, or observers app not yet synced
+**Cause**: monitoring URLs not updated in `apps/observers/overlays/prod/vmagent-scrape.yml`, or observers app not yet synced
 
 **Fix**:
 ```bash
-# After modifying config/prod.env
-git add config/prod.env
-git commit -m "chore(config): update monitoring urls"
+# After modifying the overlay file
+git add apps/observers/overlays/prod/vmagent-scrape.yml
+git commit -m "chore(monitoring): update blackbox targets"
 git push
 
 # Optional hard refresh

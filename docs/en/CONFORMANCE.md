@@ -70,11 +70,11 @@ Provides the core assertions of the document, the location of the actual impleme
 
 ### B.0 Preparation/Environment
 - **Docs**: `docs/00-prerequisites.md`, `docs/CUSTOMIZATION.md`
-- **Impl**: `config/prod.env`
+- **Impl**: `config/prod.env`, `apps/observers/overlays/prod/vmagent-scrape.yml`
 
 **Key Assertions**:
 - Requires Cloudflare Zero Trust, OCI Object Storage, SMTP
-- All public configurations are centrally managed in `config/prod.env`
+- Public configuration is centered on `config/prod.env`, and Blackbox targets live in `apps/observers/overlays/prod/vmagent-scrape.yml`
 
 **Quick Check**:
 ```bash
