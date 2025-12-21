@@ -367,13 +367,13 @@ kubectl patch app ghost -n argocd -p '{"metadata":{"annotations":{"argocd.argopr
 
 ### Blackbox Targets가 example.invalid 체크
 
-**원인**: `config/prod.env`에서 모니터링 URL을 변경하지 않았거나, observers 앱이 아직 동기화되지 않음
+**원인**: `apps/observers/overlays/prod/vmagent-scrape.yml`에서 모니터링 URL을 변경하지 않았거나, observers 앱이 아직 동기화되지 않음
 
 **해결**:
 ```bash
 # 파일 수정 후 커밋/푸시
-git add config/prod.env
-git commit -m "chore(config): update monitoring urls"
+git add apps/observers/overlays/prod/vmagent-scrape.yml
+git commit -m "chore(monitoring): update blackbox targets"
 git push
 
 # 필요 시 Argo CD 강제 리프레시
