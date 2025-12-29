@@ -80,6 +80,15 @@ Targets managed in the scrape config:
 
 ### 3. MySQL Monitoring
 
+MySQL metrics are scraped from the `mysql-exporter` sidecar in the `mysql` StatefulSet.
+- If `mysql-exporter-secret` is missing, `mysql-0` can stay NotReady and Ghost may fail to connect to MySQL.
+
+```bash
+# If you have not configured it yet, see: docs/03-vault-setup.md
+vault policy read mysql
+kubectl get secret -n blog mysql-exporter-secret
+```
+
 ```bash
 kubectl get statefulset mysql -n blog -o jsonpath='{.spec.template.spec.containers[*].name}'
 # Output: mysql mysql-exporter

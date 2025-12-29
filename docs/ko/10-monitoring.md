@@ -83,6 +83,15 @@ vmagent는 ConfigMap의 `scrape.yml`을 사용합니다.
 ### 3. MySQL 모니터링
 
 Ghost 데이터베이스 메트릭 수집을 위해 사이드카 컨테이너와 Service를 사용합니다.
+ - `mysql-exporter-secret`이 없으면 `mysql-0`가 NotReady로 남을 수 있고, Ghost가 MySQL 연결에 실패할 수 있습니다.
+
+```bash
+# 아직 설정하지 않았다면: docs/03-vault-setup.md 참고
+
+# Vault 정책 및 시크릿 확인
+vault policy read mysql
+kubectl get secret -n blog mysql-exporter-secret
+```
 
 ```bash
 kubectl get statefulset mysql -n blog -o jsonpath='{.spec.template.spec.containers[*].name}'
