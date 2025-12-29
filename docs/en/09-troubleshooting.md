@@ -80,7 +80,16 @@ kubectl logs -n blog deployment/ghost --tail=100
 
 # Common causes:
 # - MySQL connection failed
+# - MySQL Service has no ready endpoints (e.g., mysql-0 NotReady)
 # - database__connection__password mismatch
+
+# Check MySQL endpoint readiness (Service -> EndpointSlice)
+kubectl get pod -n blog mysql-0
+kubectl get endpointslice -n blog -l kubernetes.io/service-name=mysql
+
+# If mysql-0 is NotReady due to mysql-exporter secret sync failure
+kubectl get secret -n blog mysql-exporter-secret
+kubectl describe vaultstaticsecret -n blog mysql-exporter-secret
 
 # Check MySQL passwords
 kubectl get secret -n blog ghost-env -o jsonpath='{.data.database__connection__password}' | base64 -d

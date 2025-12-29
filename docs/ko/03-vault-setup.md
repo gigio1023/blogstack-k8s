@@ -107,6 +107,31 @@ vault kv put kv/blog/prod/mysql \
 
 중요: Ghost와 MySQL의 password 동일해야 함
 
+### MySQL Exporter (필수)
+
+이 리포지토리는 `mysql` StatefulSet에 `mysql-exporter` 사이드카가 포함되어 있습니다.
+- `kv/blog/prod/mysql-exporter`가 없거나 VSO가 `mysql-exporter-secret`을 생성하지 못하면 `mysql-0`가 NotReady로 남을 수 있고, Ghost가 MySQL 연결 실패로 장애가 날 수 있습니다.
+
+```bash
+vault kv put kv/blog/prod/mysql-exporter \
+  user="mysql_exporter" \
+  password="YOUR_EXPORTER_PASSWORD"
+```
+
+MySQL 사용자 생성 (`mysql` 컨테이너에서 실행):
+
+```bash
+MYSQL_ROOT_PASSWORD=$(kubectl get secret -n blog mysql-secret -o jsonpath='{.data.root_password}' | base64 -d)
+MYSQL_EXPORTER_PASSWORD="YOUR_EXPORTER_PASSWORD"
+
+kubectl exec -n blog mysql-0 -c mysql -- mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "
+CREATE USER IF NOT EXISTS 'mysql_exporter'@'%' IDENTIFIED BY '${MYSQL_EXPORTER_PASSWORD}';
+GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'mysql_exporter'@'%';
+GRANT SELECT ON performance_schema.* TO 'mysql_exporter'@'%';
+FLUSH PRIVILEGES;
+"
+```
+
 ### Cloudflared
 
 ```bash
@@ -117,14 +142,14 @@ vault kv put kv/blog/prod/cloudflared \
 ### 확인
 
 ```bash
-vault kv list kv/blog/prod  # cloudflared, ghost, mysql
+vault kv list kv/blog/prod  # cloudflared, ghost, mysql, mysql-exporter
 ```
 
 ## VSO Secret 동기화 확인
 
 ```bash
 # 10-30초 후 Secret 생성됨
-kubectl get secrets -n blog  # ghost-env, mysql-secret
+kubectl get secrets -n blog  # ghost-env, mysql-secret, mysql-exporter-secret
 kubectl get secrets -n cloudflared  # cloudflared-token
 
 # 생성 안되면 VSO 재시작

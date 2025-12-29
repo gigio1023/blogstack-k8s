@@ -107,6 +107,31 @@ vault kv put kv/blog/prod/mysql \
 
 Important: Ghost and MySQL passwords must match
 
+### MySQL Exporter (required)
+
+This repo includes `mysql-exporter` as a sidecar in the `mysql` StatefulSet.
+- If `kv/blog/prod/mysql-exporter` is missing (or VSO fails to sync `mysql-exporter-secret`), `mysql-0` can stay NotReady and Ghost may fail to connect to MySQL.
+
+```bash
+vault kv put kv/blog/prod/mysql-exporter \
+  user="mysql_exporter" \
+  password="YOUR_EXPORTER_PASSWORD"
+```
+
+Create the MySQL user (run against the `mysql` container):
+
+```bash
+MYSQL_ROOT_PASSWORD=$(kubectl get secret -n blog mysql-secret -o jsonpath='{.data.root_password}' | base64 -d)
+MYSQL_EXPORTER_PASSWORD="YOUR_EXPORTER_PASSWORD"
+
+kubectl exec -n blog mysql-0 -c mysql -- mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "
+CREATE USER IF NOT EXISTS 'mysql_exporter'@'%' IDENTIFIED BY '${MYSQL_EXPORTER_PASSWORD}';
+GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'mysql_exporter'@'%';
+GRANT SELECT ON performance_schema.* TO 'mysql_exporter'@'%';
+FLUSH PRIVILEGES;
+"
+```
+
 ### Cloudflared
 
 ```bash
@@ -117,14 +142,14 @@ vault kv put kv/blog/prod/cloudflared \
 ### Verify
 
 ```bash
-vault kv list kv/blog/prod  # cloudflared, ghost, mysql
+vault kv list kv/blog/prod  # cloudflared, ghost, mysql, mysql-exporter
 ```
 
 ## VSO Secret Sync
 
 ```bash
 # Secrets created in 10-30s
-kubectl get secrets -n blog  # ghost-env, mysql-secret
+kubectl get secrets -n blog  # ghost-env, mysql-secret, mysql-exporter-secret
 kubectl get secrets -n cloudflared  # cloudflared-token
 
 # If not created, restart VSO
