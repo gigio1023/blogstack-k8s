@@ -11,7 +11,7 @@ on:
 jobs:
   validate:
     name: Validate Kubernetes Manifests
-    runs-on: blogstack-k8s-arc-runner-set
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout
